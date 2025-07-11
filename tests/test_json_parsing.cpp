@@ -1,4 +1,4 @@
-#include "json_value.h"
+#include "jsonstruct.h"
 #include <iostream>
 #include <cassert>
 
@@ -41,7 +41,7 @@ void testJsonParsing() {
     assert(parsed["price"].isDouble());
     assert(parsed["discount"].isDouble());
     
-    std::cout << "âœ?JSON parsing precision test passed" << std::endl;
+    std::cout << "ï¿½?JSON parsing precision test passed" << std::endl;
     
     // Test 2: Serialize and round-trip
     std::cout << "\nTest 2: Serialize and round-trip test" << std::endl;
@@ -64,7 +64,7 @@ void testJsonParsing() {
     assert(roundTrip["bigIntBeyondSafe"].toLongLong() == 9007199254740993LL);
     assert(std::abs(roundTrip["float"].toDouble() - 3.14159) < 1e-10);
     
-    std::cout << "âœ?Serialize and round-trip test passed" << std::endl;
+    std::cout << "ï¿½?Serialize and round-trip test passed" << std::endl;
     
     // Test 3: Array of mixed numbers
     std::cout << "\nTest 3: Array of mixed numbers" << std::endl;
@@ -88,7 +88,7 @@ void testJsonParsing() {
     std::cout << "Array element 2: " << arrayParsed[2].toLongLong() << " (integer)" << std::endl;
     std::cout << "Array element 3: " << arrayParsed[3].toLongLong() << " (integer)" << std::endl;
     
-    std::cout << "âœ?Array of mixed numbers test passed" << std::endl;
+    std::cout << "ï¿½?Array of mixed numbers test passed" << std::endl;
 }
 
 int main() {

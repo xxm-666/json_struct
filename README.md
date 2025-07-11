@@ -1,186 +1,322 @@
-# JsonStruct Registry - Enterprise-Grade JSON Library for C++17+
+# JsonStruct Registry - C++17+ 类型注册与自动序列化系统
 
-> A modern, high-performance JSON library for C++17+ with advanced features, type safety, and enterprise-grade capabilities.
+> 让C++对象与JSON转换变得简单自动 - 专为STL和Qt类型设计的零侵入序列化框架
 
-## � Project Status: Migration Complete
-
-**✅ MIGRATION SUCCESSFULLY COMPLETED**
-- All JsonValueEnhanced functionality has been migrated to unified JsonValue API
-- Legacy implementations removed
-- All tests passing
-- Build system updated
-- Full C++17+ feature support maintained
-
-## 📁 Project Structure
+## 📁 项目结构
 
 ```
 jsonstruct_registry/
-├── src/                           # Core Source Code
-│   ├── json_value.h               # Core JsonValue Header
-│   ├── json_value.cpp             # Core JsonValue Implementation
-│   ├── json_number.h              # High-Precision Number Handling
-│   ├── json_stream_parser.h       # Streaming Parser
-│   ├── json_path.h                # JSONPath Query Header
-│   ├── json_path.cpp              # JSONPath Query Implementation
-│   ├── std/                       # STL Integration
-│   │   ├── jsonstruct_std.h       # STL Main Header
-│   │   ├── std_jsonstruct.h       # STL Serialization Support
-│   │   ├── std_types_registration.h # STL Type Registration
-│   │   ├── std_type_registry.h    # Type Registry System
-│   │   └── std_custom_types_example.h # Custom Types Example
-│   └── qt/                        # Qt Integration (Optional)
-│       └── qt_types_registration.h
-├── tests/                         # Test Programs
-│   ├── test_std_system.cpp        # STL System Tests
-│   ├── test_enhanced_features.cpp # Advanced Features Tests
-│   ├── test_comprehensive_demo.cpp# Comprehensive Feature Demo
-│   ├── test_streaming.cpp         # Streaming Parser Tests
-│   ├── test_json_parsing.cpp      # JSON Parsing Tests
-│   ├── test_jsonpath*.cpp         # JSONPath Test Suite
-│   ├── test_precision_fix*.cpp    # Numeric Precision Tests
-│   ├── test_special_numbers.cpp   # Special Numbers Tests
-│   └── test_error_recovery.cpp    # Error Recovery Tests
-├── examples/                      # Example Programs
-│   ├── demo_enhanced_simple.cpp   # Basic Feature Demo
-│   ├── demo_jsonpath_complete.cpp # Complete JSONPath Demo
-│   ├── demo_precision_fix*.cpp    # Numeric Precision Demo
-│   ├── demo_migration_compatibility*.cpp # API Compatibility Demo
-│   └── debug_recursive.cpp        # Debug Tools
-├── docs/                          # Documentation
-│   ├── QUICK_START.md             # Quick Start Guide
-│   ├── API_REFERENCE.md           # API Reference Manual
-│   ├── USER_GUIDE.md              # User Guide
-│   ├── ADVANCED_FEATURES.md       # Advanced Features
-│   └── PERFORMANCE_GUIDE.md       # Performance Optimization Guide
-├── build/                         # Build Output
-├── CMakeLists.txt                 # CMake Build Configuration
-└── README.md                      # This file
+├── src/                           # 核心源码
+│   ├── jsonstruct.h               # 🌟 统一入口头文件 (推荐使用)
+│   ├── type_registry/             # 🥇 类型注册系统核心
+│   │   ├── registry_core.h        # 类型注册表核心
+│   │   ├── auto_serializer.h      # 自动序列化引擎
+│   │   └── field_macros.h         # JSON_FIELDS宏定义
+│   ├── std_types/                 # 🥈 STL类型注册 (重要)
+│   │   ├── std_registry.h         # STL类型注册主头文件
+│   │   ├── container_registry.h   # 容器类型注册
+│   │   └── custom_types_example.h # 自定义类型示例
+│   ├── qt_types/                  # � Qt类型注册 (可选)
+│   │   └── qt_registry.h          # Qt类型注册实现
+│   └── json_engine/               # 📦 JSON支撑引擎 (内部使用)
+│       ├── json_value.h           # JSON值表示
+│       ├── json_value.cpp         # JSON核心实现
+│       ├── json_number.h          # 数值精度处理
+│       ├── json_stream_parser.h   # 流式解析器
+│       ├── json_path.h            # JSONPath查询引擎
+│       └── json_path.cpp          # JSONPath实现
+├── tests/                         # 测试套件
+│   ├── test_std_system.cpp        # 🎯 STL类型注册测试 (重点)
+│   ├── test_enhanced_features.cpp # 高级特性测试
+│   ├── test_comprehensive_demo.cpp# 综合功能演示
+│   ├── test_streaming.cpp         # 流式解析测试
+│   ├── test_json_parsing.cpp      # JSON解析测试
+│   ├── test_jsonpath.cpp          # JSONPath功能测试
+│   ├── test_jsonpath_clean.cpp    # JSONPath清洁测试
+│   ├── test_jsonpath_unified.cpp  # JSONPath统一测试
+│   ├── test_advanced_jsonpath.cpp # JSONPath高级测试
+│   ├── test_precision_fix_en.cpp  # 数值精度测试
+│   ├── test_special_numbers.cpp   # 特殊数值测试
+│   └── test_error_recovery.cpp    # 错误恢复测试
+├── examples/                      # 示例程序
+│   ├── example_enhanced_simple.cpp   # 🎨 基础类型注册演示 (重点)
+│   └── example_jsonpath_complete.cpp # JSONPath完整演示
+├── docs/                          # 分层文档
+│   ├── type_registry/             # 🎯 类型注册文档 (核心)
+│   │   ├── QUICK_START.md         # 5分钟快速开始
+│   │   ├── JSON_FIELDS_MACRO.md   # 宏的详细用法
+│   │   ├── CUSTOM_TYPES.md        # 自定义类型注册
+│   │   └── BEST_PRACTICES.md      # 最佳实践
+│   ├── std_types/                 # STL类型文档
+│   │   ├── CONTAINER_GUIDE.md     # 容器类型使用指南
+│   │   ├── POINTER_GUIDE.md       # 智能指针序列化
+│   │   └── STRING_HANDLING.md     # 字符串处理
+│   ├── qt_types/                  # Qt类型文档
+│   │   ├── QT_INTEGRATION.md      # Qt集成指南
+│   │   ├── GEOMETRY_TYPES.md      # 几何类型序列化
+│   │   └── GRAPHICS_TYPES.md      # 图形类型序列化
+│   └── json_engine/               # JSON引擎文档 (支撑)
+│       ├── JSON_BASICS.md         # JSON基础操作
+│       ├── PARSER_REFERENCE.md    # 解析器参考
+│       └── SERIALIZER_REFERENCE.md # 序列化器参考
+├── CMakeLists.txt                 # CMake构建配置
+└── README.md                      # 项目说明
 ```
-## 🚀 Quick Start
+## 🚀 快速开始 - 一行代码搞定序列化
 
-### Basic Usage
+### ✨ STL类型自动序列化
 
 ```cpp
-#include "jsonstruct_std.h"
+#include "jsonstruct.h"                    // 🌟 新的统一入口
 using namespace JsonStruct;
 
+// 定义数据结构
+struct UserConfig {
+    std::string name = "Alice";
+    std::vector<int> scores = {95, 87, 92};
+    std::map<std::string, double> settings = {{"volume", 0.8}, {"brightness", 0.6}};
+    bool enabled = true;
+    
+    // 一行宏完成类型注册
+    JSON_FIELDS(name, scores, settings, enabled)
+};
+
 int main() {
-    // Create JSON object
-    JsonValue json;
-    json["name"] = "Alice";
-    json["age"] = 30;
-    json["skills"] = JsonValue::ArrayType{"C++", "JSON", "Design"};
+    UserConfig config;
     
-    // Serialize
-    std::string jsonString = json.serialize(2); // With indentation
-    std::cout << jsonString << std::endl;
+    // 自动序列化到JSON
+    std::string jsonStr = config.toJsonString(2);
+    std::cout << jsonStr << std::endl;
+    /*
+    输出:
+    {
+      "name": "Alice",
+      "scores": [95, 87, 92],
+      "settings": {
+        "volume": 0.8,
+        "brightness": 0.6
+      },
+      "enabled": true
+    }
+    */
     
-    // Parse
-    JsonValue parsed = JsonValue::parse(jsonString);
-    std::cout << "Name: " << parsed["name"].toString() << std::endl;
+    // 自动从JSON反序列化
+    UserConfig restored = UserConfig::fromJsonString(jsonStr);
+    std::cout << "Name: " << restored.name << std::endl;
     
     return 0;
 }
 ```
 
-### Build Project
+### 🛠️ Qt类型无缝集成
+
+```cpp
+#include "jsonstruct.h"                    // 统一入口自动包含Qt支持
+using namespace JsonStruct;
+
+struct WindowConfig {
+    QString title = "My Window";
+    QPointF position = {100.0, 200.0};
+    QRectF geometry = {0, 0, 800, 600};
+    QStringList recentFiles = {"file1.txt", "file2.txt"};
+    QColor backgroundColor = QColor(255, 255, 255);
+    
+    JSON_FIELDS(title, position, geometry, recentFiles, backgroundColor)
+};
+
+// 使用方法完全相同
+WindowConfig config;
+QString jsonStr = QString::fromStdString(config.toJsonString(2));
+WindowConfig restored = WindowConfig::fromJsonString(jsonStr.toStdString());
+```
+
+### 📦 项目构建
 
 ```bash
-# Configure CMake
+# 配置CMake
 cmake -B build -S .
 
-# Build all targets
+# 构建所有目标
 cmake --build build --config Release
 
-# Run tests
-./build/Release/test_std_system        # Core functionality tests
-./build/Release/demo_enhanced_simple   # Basic feature demo
+# 运行类型注册系统测试
+./build/Release/test_std_system          # STL类型测试
+./build/Release/example_enhanced_simple  # 基础功能演示
 ```
 
-## 🏆 Core Features
+## 🏆 核心特性
 
-### 🔢 High-Precision Numeric Support
-- **JsonNumber class**: Support for large integers beyond IEEE 754 precision limits
-- **Type detection**: Intelligent distinction between integers and floating-point numbers
-- **Special value support**: Complete NaN/Infinity handling
+### 🎯 零侵入类型注册
+- **一行宏搞定**: 使用 `JSON_FIELDS()` 宏即可完成类型注册
+- **无需修改现有代码**: 对现有类结构零侵入
+- **编译时类型安全**: 所有类型检查在编译期完成
+- **自动推导**: 自动处理复杂嵌套类型
 
-### 🌟 Modern C++17+ Features
-- **Type safety**: std::variant ensures runtime type safety
-- **Modern syntax**: std::optional, std::string_view, perfect forwarding
-- **Visitor pattern**: Type-safe value access mechanism
-- **Move semantics**: Efficient operations for large objects
+### 📦 全面的STL类型支持
+- **基础容器**: `std::vector`, `std::list`, `std::deque`, `std::array`
+- **关联容器**: `std::map`, `std::unordered_map`, `std::set`, `std::unordered_set`
+- **智能指针**: `std::shared_ptr`, `std::unique_ptr`, `std::optional`
+- **元组类型**: `std::tuple`, `std::pair`
+- **字符串类型**: `std::string`, `std::string_view`
 
-### 🔍 Enterprise JSONPath (100% Complete)
-- **Full JSONPath support**: Complete implementation of JSONPath query language
-- **Advanced queries**: Array indexing, slicing, wildcards, recursive descent
-- **Multiple selection**: selectFirst(), selectAll(), selectValues() methods
-- **Path validation**: pathExists() for existence checking
-- **Performance optimized**: Efficient path parsing and value extraction
-
-**JSONPath Examples:**
+**STL类型示例:**
 ```cpp
-JsonValue data = JsonValue::parse(R"({
-    "books": [
-        {"title": "C++ Guide", "price": 29.99},
-        {"title": "JSON Manual", "price": 19.99}
-    ]
-})");
+struct DataContainer {
+    std::vector<std::string> names;
+    std::map<std::string, std::vector<int>> groups;
+    std::optional<std::string> description;
+    std::shared_ptr<std::map<std::string, double>> settings;
+    
+    JSON_FIELDS(names, groups, description, settings)
+};
 
-// Array indexing
-auto title = data.selectFirst("$.books[0].title");        // "C++ Guide"
-
-// Array wildcards  
-auto titles = data.selectAll("$.books[*].title");         // All book titles
-
-// Array slicing
-auto subset = data.selectAll("$.books[0:2]");             // First 2 books
-
-// Recursive descent
-auto prices = data.selectAll("$..price");                 // All prices
+// 复杂嵌套类型自动处理！
+DataContainer data;
+std::string json = data.toJsonString();
+DataContainer restored = DataContainer::fromJsonString(json);
 ```
 
-### 🌊 Streaming Parser
-- **Event-driven**: Memory-efficient processing of large files
-- **Error recovery**: Fault-tolerant parsing and character-level recovery
-- **Configurable**: Support for comments, trailing commas and other non-standard features
+### 🖼️ Qt类型生态支持
+- **字符串类型**: `QString`, `QStringList`
+- **几何类型**: `QPointF`, `QRectF`, `QRect`, `QSizeF`
+- **图形类型**: `QColor`, `QBrush`, `QPen`
+- **容器类型**: `QList<T>`, `QVector<T>`, `QMap<K,V>`
 
-### 🎯 Type Registration System
-- **STL containers**: Automatic support for vector, map and other standard containers
-- **Custom types**: Simple type registration macros
-- **Serialization**: Type-safe bidirectional conversion
+### 🔧 高级类型注册机制
+- **自定义序列化器**: 为特殊类型提供自定义转换逻辑
+- **类型注册表**: 运行时类型注册和查询系统
+- **递归类型支持**: 自动处理嵌套对象和循环引用
+- **默认值支持**: 反序列化时的智能默认值处理
 
-## 📚 Documentation
+**自定义类型注册:**
+```cpp
+// 注册自定义类型
+TypeRegistry::registerType<MyCustomType>(
+    // 序列化函数
+    [](const MyCustomType& obj) -> JsonValue {
+        return JsonValue::Object{{"data", obj.getData()}};
+    },
+    // 反序列化函数
+    [](const JsonValue& json, const MyCustomType& defaultVal) -> MyCustomType {
+        if (json.hasKey("data")) {
+            return MyCustomType(json["data"].toString());
+        }
+        return defaultVal;
+    }
+);
+```
 
-- **[Quick Start](docs/QUICK_START.md)** - Basic examples and quick start guide
-- **[API Reference](docs/API_REFERENCE.md)** - Complete class and method documentation
-- **[User Guide](docs/USER_GUIDE.md)** - Detailed usage instructions and examples
-- **[Advanced Features](docs/ADVANCED_FEATURES.md)** - JSONPath, streaming parser, type registration, etc.
-- **[Performance Guide](docs/PERFORMANCE_GUIDE.md)** - Optimization recommendations and best practices
+### 🚀 现代C++17+特性
+- **constexpr支持**: 编译时常量表达式优化
+- **完美转发**: 高效的参数传递
+- **结构化绑定**: 现代C++语法支持
+- **类型推导**: auto和decltype的广泛使用
 
-## 🎯 Use Cases
+## 📚 文档与指南
 
-**Ideal choice for**:
-- 🏢 **Enterprise applications**: Production environments requiring high reliability and performance
-- 🔢 **Precision-sensitive applications**: Finance, scientific computing scenarios requiring numerical precision
-- 📊 **Big data processing**: Streaming parsing of large JSON files
-- 🔍 **Complex queries**: Applications requiring advanced query features like JSONPath
-- 🚀 **Modern C++ projects**: Projects leveraging C++17+ new features
+### 🎯 类型注册系统 (核心文档)
+- **[5分钟快速开始](docs/type_registry/QUICK_START.md)** - 立即上手类型注册系统
+- **[JSON_FIELDS宏详解](docs/type_registry/JSON_FIELDS_MACRO.md)** - 核心宏的完整用法
+- **[自定义类型注册](docs/type_registry/CUSTOM_TYPES.md)** - 注册您自己的类型
+- **[最佳实践](docs/type_registry/BEST_PRACTICES.md)** - 性能优化和使用建议
 
-## 📈 Performance Features
+### 📦 STL类型支持
+- **[容器类型指南](docs/std_types/CONTAINER_GUIDE.md)** - vector, map, set等容器的序列化
+- **[智能指针处理](docs/std_types/POINTER_GUIDE.md)** - shared_ptr, unique_ptr, optional的使用
+- **[字符串处理](docs/std_types/STRING_HANDLING.md)** - string, string_view的处理方式
 
-- **O(1) lookup**: Fast key-value lookup using std::unordered_map
-- **Move semantics**: Zero-copy optimization for large object operations
-- **Memory efficient**: Streaming parser uses only O(depth) memory
-- **Compile-time optimization**: Extensive use of templates and constexpr
+### 🖼️ Qt类型集成
+- **[Qt集成指南](docs/qt_types/QT_INTEGRATION.md)** - Qt环境设置和基础使用
+- **[几何类型序列化](docs/qt_types/GEOMETRY_TYPES.md)** - QPointF, QRectF等几何类型
+- **[图形类型序列化](docs/qt_types/GRAPHICS_TYPES.md)** - QColor, QBrush等图形类型
 
-## 📝 License
+### 🔧 JSON引擎 (支撑文档)
+- **[JSON基础操作](docs/json_engine/JSON_BASICS.md)** - 底层JSON操作参考
+- **[解析器参考](docs/json_engine/PARSER_REFERENCE.md)** - JSON解析器API
+- **[序列化器参考](docs/json_engine/SERIALIZER_REFERENCE.md)** - JSON序列化器API
 
-This project is licensed under the MIT License. See the LICENSE file in the project root for details.
+## 🎯 使用场景
 
-## 🤝 Contributing
+**理想选择适用于**:
+- 🏢 **企业级应用**: 需要可靠配置管理和数据持久化的生产环境
+- 📊 **数据交换**: 微服务间通信、API数据传输
+- ⚙️ **配置管理**: 应用配置文件的序列化和反序列化
+- 🎮 **游戏开发**: 游戏数据、存档文件的自动序列化  
+- 🖥️ **桌面应用**: Qt应用的设置和状态保存
+- � **跨平台项目**: 需要统一数据格式的多平台应用
 
-Issues and Pull Requests are welcome to improve this project.
+## 📈 性能特性
+
+- **零拷贝优化**: 移动语义避免不必要的数据复制
+- **编译时优化**: 模板和constexpr的广泛使用
+- **类型注册缓存**: 运行时类型查询O(1)复杂度
+- **内存高效**: 最小化序列化过程中的内存分配
+
+## 🆚 对比其他方案
+
+| 特性 | JsonStruct Registry | 手写序列化 | 其他JSON库 |
+|------|--------------------|-----------|---------| 
+| **学习成本** | ⭐⭐⭐⭐⭐ 极低 | ⭐⭐ 高 | ⭐⭐⭐ 中等 |
+| **代码维护** | ⭐⭐⭐⭐⭐ 自动化 | ⭐ 手动维护 | ⭐⭐⭐ 需要适配 |
+| **STL支持** | ⭐⭐⭐⭐⭐ 完整 | ⭐⭐ 需手写 | ⭐⭐⭐ 部分支持 |
+| **Qt支持** | ⭐⭐⭐⭐⭐ 原生 | ⭐ 需手写 | ⭐ 基本不支持 |
+| **类型安全** | ⭐⭐⭐⭐⭐ 编译时 | ⭐⭐⭐ 运行时 | ⭐⭐⭐ 运行时 |
+| **性能** | ⭐⭐⭐⭐ 优秀 | ⭐⭐⭐⭐⭐ 最优 | ⭐⭐⭐ 良好 |
+
+## 🎨 设计理念
+
+### 📏 简洁至上
+```cpp
+// 其他方案可能需要：
+class User {
+    std::string name;
+    int age;
+public:
+    void serialize(JsonWriter& writer) { /* 20+ lines */ }
+    void deserialize(JsonReader& reader) { /* 20+ lines */ }
+};
+
+// JsonStruct Registry只需要：
+struct User {
+    std::string name;
+    int age;
+    JSON_FIELDS(name, age)  // 一行搞定！
+};
+```
+
+### 🔒 类型安全第一
+- 编译时类型检查，运行时零意外
+- 自动类型推导，无需手动指定类型
+- 强类型转换，避免隐式转换错误
+
+## 📝 开源协议
+
+本项目采用MIT开源协议。详情请参见项目根目录的LICENSE文件。
+
+## 🤝 贡献
+
+欢迎提交Issue和Pull Request来完善这个项目！
+
+特别欢迎：
+- 新的STL类型支持
+- 更多Qt类型注册
+- 性能优化建议
+- 使用案例分享
+
+## 🔮 路线图
+
+### 短期目标
+- [ ] 完善更多STL容器类型支持
+- [ ] 增加Qt6新类型支持
+- [ ] 优化序列化性能
+- [ ] 添加更多使用示例
+
+### 长期愿景
+- [ ] 支持自定义序列化格式（XML、YAML等）
+- [ ] 提供可视化类型注册工具
+- [ ] 集成到主流IDE中
+- [ ] 建立类型注册生态系统
 
 ---
 
-**JsonStruct Registry** - Enterprise-grade C++17+ JSON processing library with modern design, high performance, production-ready.
+**JsonStruct Registry** - 让C++对象序列化变得简单自动，专为STL和Qt设计的现代C++17+类型注册框架。

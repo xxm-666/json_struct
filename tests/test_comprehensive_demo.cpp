@@ -1,4 +1,4 @@
-#include "json_value.h"
+#include "jsonstruct.h"
 #include "json_stream_parser.h"
 #include <iostream>
 #include <cassert>

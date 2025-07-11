@@ -1,5 +1,5 @@
-#include "jsonstruct_std.h"
-#include "std_custom_types_example.h"
+#include "jsonstruct.h"
+// #include "std_types/custom_types_example.h"
 #include <iostream>
 #include <cassert>
 

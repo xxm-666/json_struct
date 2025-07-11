@@ -6,20 +6,30 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Include directories
 include_directories(src)
-include_directories(src/std)
-include_directories(src/qt)
+include_directories(src/type_registry)
+include_directories(src/std_types)
+include_directories(src/qt_types)
+include_directories(src/json_engine)
 
 # Core library sources
 set(CORE_SOURCES
-    src/json_value.cpp
-    src/json_path.cpp
+    src/json_engine/json_value.cpp
+    src/json_engine/json_path.cpp
 )
 
 set(CORE_HEADERS
-    src/json_value.h
-    src/json_number.h
-    src/json_stream_parser.h
-    src/json_path.h
+    src/jsonstruct.h
+    src/type_registry/registry_core.h
+    src/type_registry/auto_serializer.h
+    src/type_registry/field_macros.h
+    src/std_types/std_registry.h
+    src/std_types/container_registry.h
+    # src/std_types/custom_types_example.h
+    src/qt_types/qt_registry.h
+    src/json_engine/json_value.h
+    src/json_engine/json_number.h
+    src/json_engine/json_stream_parser.h
+    src/json_engine/json_path.h
 )
 
 # Create a static library for the core functionality
@@ -76,11 +86,11 @@ add_executable(test_comprehensive_demo
 target_link_libraries(test_comprehensive_demo jsonstruct_core)
 target_compile_features(test_comprehensive_demo PRIVATE cxx_std_17)
 
-add_executable(test_std_system
-    tests/test_std_system.cpp
-)
-target_link_libraries(test_std_system jsonstruct_core)
-target_compile_features(test_std_system PRIVATE cxx_std_17)
+# add_executable(test_std_system
+#     tests/test_std_system.cpp
+# )
+# target_link_libraries(test_std_system jsonstruct_core)
+# target_compile_features(test_std_system PRIVATE cxx_std_17)
 
 add_executable(example_enhanced_simple
     examples/example_enhanced_simple.cpp
@@ -114,21 +124,14 @@ add_custom_target(tests
         test_streaming
         test_jsonpath_unified
         test_enhanced_features
-        test_numeric_precision
         test_comprehensive_demo
         test_std_system
-        test_precision_fix
 )
 
 add_custom_target(examples
     DEPENDS
-        demo_precision_fix_ascii
-        demo_precision_fix
-        demo_enhanced_simple
-        demo_jsonpath_complete
-        demo_migration_compatibility
-        demo_migration_compatibility_en
-        debug_recursive
+        example_enhanced_simple
+        example_jsonpath_complete
 )
 
 add_custom_target(all_targets
@@ -145,14 +148,29 @@ install(FILES ${CORE_HEADERS}
     DESTINATION include/jsonstruct
 )
 
-install(FILES src/std/jsonstruct_std.h
-             src/std/std_jsonstruct.h
-             src/std/std_types_registration.h
-             src/std/std_type_registry.h
-             src/std/std_custom_types_example.h
-    DESTINATION include/jsonstruct/std
+install(FILES src/jsonstruct.h
+    DESTINATION include/jsonstruct
 )
 
-install(FILES src/qt/qt_types_registration.h
-    DESTINATION include/jsonstruct/qt
+install(FILES src/type_registry/registry_core.h
+             src/type_registry/auto_serializer.h
+             src/type_registry/field_macros.h
+    DESTINATION include/jsonstruct/type_registry
+)
+
+install(FILES src/std_types/std_registry.h
+             src/std_types/container_registry.h
+             # src/std_types/custom_types_example.h
+    DESTINATION include/jsonstruct/std_types
+)
+
+install(FILES src/qt_types/qt_registry.h
+    DESTINATION include/jsonstruct/qt_types
+)
+
+install(FILES src/json_engine/json_value.h
+             src/json_engine/json_number.h
+             src/json_engine/json_stream_parser.h
+             src/json_engine/json_path.h
+    DESTINATION include/jsonstruct/json_engine
 )

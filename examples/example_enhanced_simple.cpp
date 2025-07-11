@@ -1,4 +1,4 @@
-#include "json_value.h"
+#include "jsonstruct.h"
 #include <iostream>
 #include <chrono>
 #include <vector>
@@ -197,7 +197,7 @@ int main() {
         demonstrateErrorHandling();
         
         std::cout << "\nDemo completed successfully!" << std::endl;
-        std::cout << "\nFor more details, please refer to JSON_VALUE_ENHANCED_GUIDE.md" << std::endl;
+        std::cout << "\nFor more details, please refer to README.md and docs/ADVANCED_FEATURES.md" << std::endl;
         
     } catch (const std::exception& e) {
         std::cout << "Demo failed with exception: " << e.what() << std::endl;

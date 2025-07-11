@@ -1,5 +1,5 @@
 #pragma once
-#include "json_type_registry.h"
+#include "../type_registry/registry_core.h"
 #include <QStringList>
 #include <QPointF>
 #include <QRectF>
@@ -45,7 +45,7 @@ private:
                     }
                     return result; // 直接返回结果，支持空数组
                 }
-                return defaultValue; // 只有当不是数组时才返回默认�?
+                return defaultValue; // 只有当不是数组时才返回默认�?
             }
         );
     }
@@ -166,18 +166,18 @@ private:
                 if (json.isArray()) {
                     QList<QPointF> result;
                     for (const auto& item : json.toArray()) {
-                        // 使用已注册的QPointF反序列化�?
+                        // 使用已注册的QPointF反序列化�?
                         result << TypeRegistry::instance().fromJson<QPointF>(item, QPointF());
                     }
                     return result; // 直接返回结果，支持空数组
                 }
-                return defaultValue; // 只有当不是数组时才返回默认�?
+                return defaultValue; // 只有当不是数组时才返回默认�?
             }
         );
     }
 };
 
-// 自动注册Qt类型的静态初始化�?
+// 自动注册Qt类型的静态初始化�?
 namespace {
     struct QtTypesAutoRegistrar {
         QtTypesAutoRegistrar() {

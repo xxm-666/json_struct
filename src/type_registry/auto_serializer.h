@@ -1,35 +1,13 @@
 #pragma once
-#include "json_value.h"
-#include "std_type_registry.h"
+#include "../json_engine/json_value.h"
+#include "registry_core.h"
+#include "field_macros.h"
 #include <type_traits>
 #include <tuple>
 #include <sstream>
 #include <vector>
 
-#define JSON_FIELDS(...)                       \
-    auto json_fields() const {                 \
-        return std::tie(__VA_ARGS__);          \
-    }                                              \
-    auto json_fields() {                       \
-        return std::tie(__VA_ARGS__);          \
-    }                                              \
-    static const char* json_field_names() { \
-        return #__VA_ARGS__; \
-    }
-
-inline std::vector<std::string> split_names(const std::string& names) {
-    std::vector<std::string> result;
-    std::stringstream ss(names);
-    std::string item;
-    while (std::getline(ss, item, ',')) {
-        size_t start = item.find_first_not_of(" \t");
-        if (start != std::string::npos) {
-            size_t end = item.find_last_not_of(" \t");
-            result.push_back(item.substr(start, end - start + 1));
-        }
-    }
-    return result;
-}
+// JSON_FIELDS 宏现在在 field_macros.h 中定义
 
 template<typename T>
 constexpr bool is_json_primitive_v =

@@ -1,5 +1,5 @@
 #pragma once
-#include "std_type_registry.h"
+#include "../type_registry/registry_core.h"
 #include <vector>
 #include <list>
 #include <map>
@@ -20,7 +20,7 @@ public:
 private:
     // std::vector<int> 注册
     static void registerStdVector() {
-        TypeRegistry::instance().registerType<std::vector<int>>(
+        JsonStruct::TypeRegistry::instance().registerType<std::vector<int>>(
             // toJson
             [](const std::vector<int>& vec) -> JsonValue {
                 JsonValue::ArrayType arr;
@@ -44,7 +44,7 @@ private:
         );
 
         // std::vector<std::string> 注册
-        TypeRegistry::instance().registerType<std::vector<std::string>>(
+        JsonStruct::TypeRegistry::instance().registerType<std::vector<std::string>>(
             // toJson
             [](const std::vector<std::string>& vec) -> JsonValue {
                 JsonValue::ArrayType arr;
@@ -70,7 +70,7 @@ private:
     
     // std::list<int> 注册
     static void registerStdList() {
-        TypeRegistry::instance().registerType<std::list<int>>(
+        JsonStruct::TypeRegistry::instance().registerType<std::list<int>>(
             // toJson
             [](const std::list<int>& lst) -> JsonValue {
                 JsonValue::ArrayType arr;
@@ -96,7 +96,7 @@ private:
     
     // std::map<std::string, int> 注册
     static void registerStdMap() {
-        TypeRegistry::instance().registerType<std::map<std::string, int>>(
+        JsonStruct::TypeRegistry::instance().registerType<std::map<std::string, int>>(
             // toJson
             [](const std::map<std::string, int>& mp) -> JsonValue {
                 JsonValue::ObjectType obj;
@@ -120,7 +120,7 @@ private:
         );
 
         // std::map<std::string, std::string> 注册
-        TypeRegistry::instance().registerType<std::map<std::string, std::string>>(
+        JsonStruct::TypeRegistry::instance().registerType<std::map<std::string, std::string>>(
             // toJson
             [](const std::map<std::string, std::string>& mp) -> JsonValue {
                 JsonValue::ObjectType obj;
