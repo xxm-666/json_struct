@@ -56,7 +56,6 @@ src/
 ✅ test_precision_fix_en.exe           # 数值精度测试
 ✅ test_special_numbers.exe            # 特殊数值测试
 ✅ test_streaming.exe                  # 流式解析测试
-⚠️ test_std_system.exe                 # 编译失败(custom_types_example.h格式问题)
 ```
 
 ## 🚀 核心特性验证

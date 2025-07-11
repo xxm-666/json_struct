@@ -29,6 +29,10 @@ struct has_json_fields {
 template<typename T>
 constexpr bool has_json_fields_v = has_json_fields<T>::value;
 
+// Forward declarations
+template<typename T> T getJsonField(const JsonStruct::JsonValue::ObjectType& json, const std::string& key, const T& defaultValue = T{});
+template<typename T> void setJsonField(JsonStruct::JsonValue::ObjectType& json, const std::string& key, const T& value);
+
 template<typename T>
 JsonStruct::JsonValue toJsonValue(const T& value) {
     // 首先检查是否在类型注册表中
@@ -53,39 +57,60 @@ JsonStruct::JsonValue toJsonValue(const T& value) {
         return JsonStruct::JsonValue(static_cast<int>(value));
     }
     else if constexpr (has_json_fields_v<T>) {
-        return toJson(value);
+        return JsonStruct::JsonValue(toJson(value));
     }
     else {
         return JsonStruct::JsonValue();
     }
 }
 
-// Simplified version, handle simple cases first
+// Helper to get tuple size using SFINAE
 template<typename T>
-typename std::enable_if<has_json_fields_v<T>, JsonStruct::JsonObject>::type
-toJson(const T& obj) {
-    JsonStruct::JsonObject json;
+struct tuple_size_helper {
+    using type = decltype(std::declval<T>().json_fields());
+    static constexpr std::size_t value = std::tuple_size_v<type>;
+};
+
+// Helper for serialization using index sequence
+template<typename T, std::size_t... I>
+JsonStruct::JsonValue::ObjectType toJsonImpl(const T& obj, std::index_sequence<I...>) {
+    JsonStruct::JsonValue::ObjectType json;
     auto names_str = std::string(T::json_field_names());
-    auto names_vec = split_names(names_str);
+    auto names_vec = JsonStruct::FieldMacros::split_field_names(names_str);
     auto fields = obj.json_fields();
     
-    // Simplified version - handle common field counts
-    if (names_vec.size() >= 1 && names_vec.size() <= 4) {
-        if (names_vec.size() >= 1) {
-            setJsonField(json, names_vec[0], std::get<0>(fields));
-        }
-        if (names_vec.size() >= 2) {
-            setJsonField(json, names_vec[1], std::get<1>(fields));
-        }
-        if (names_vec.size() >= 3) {
-            setJsonField(json, names_vec[2], std::get<2>(fields));
-        }
-        if (names_vec.size() >= 4) {
-            setJsonField(json, names_vec[3], std::get<3>(fields));
-        }
-    }
+    // Use fold expression (C++17) to set all fields
+    ((setJsonField(json, names_vec[I], std::get<I>(fields))), ...);
     
     return json;
+}
+
+// Main serialization function
+template<typename T>
+typename std::enable_if<has_json_fields_v<T>, JsonStruct::JsonValue::ObjectType>::type
+toJson(const T& obj) {
+    constexpr auto size = tuple_size_helper<T>::value;
+    return toJsonImpl(obj, std::make_index_sequence<size>{});
+}
+
+// Helper for deserialization using index sequence
+template<typename T, std::size_t... I>
+void fromJsonImpl(T& obj, const JsonStruct::JsonValue::ObjectType& json, std::index_sequence<I...>) {
+    auto names_str = std::string(T::json_field_names());
+    auto names_vec = JsonStruct::FieldMacros::split_field_names(names_str);
+    auto fields = obj.json_fields();
+    
+    // Use fold expression to deserialize all fields
+    ((std::get<I>(fields) = getJsonField(json, names_vec[I], std::get<I>(fields))), ...);
+}
+
+// Main deserialization function
+template<typename T>
+void fromJson(T& obj, const JsonStruct::JsonValue::ObjectType& json) {
+    if constexpr (has_json_fields_v<T>) {
+        constexpr auto size = tuple_size_helper<T>::value;
+        fromJsonImpl(obj, json, std::make_index_sequence<size>{});
+    }
 }
 
 template<typename T>
@@ -140,33 +165,46 @@ inline std::string fromJsonValue(const JsonStruct::JsonValue& value, const std::
     return value.toString(defaultValue);
 }
 
-template<typename T>
-void fromJson(T& obj, const JsonStruct::JsonObject& json) {
-    if constexpr (has_json_fields_v<T>) {
-        auto names_str = std::string(T::json_field_names());
-        auto names_vec = split_names(names_str);
-        auto fields = obj.json_fields();
-        
-        // Simplified version - handle common field counts
-        if (names_vec.size() >= 1 && names_vec.size() <= 4) {
-            if (names_vec.size() >= 1) {
-                std::get<0>(fields) = getJsonField(json, names_vec[0], std::get<0>(fields));
-            }
-            if (names_vec.size() >= 2) {
-                std::get<1>(fields) = getJsonField(json, names_vec[1], std::get<1>(fields));
-            }
-            if (names_vec.size() >= 3) {
-                std::get<2>(fields) = getJsonField(json, names_vec[2], std::get<2>(fields));
-            }
-            if (names_vec.size() >= 4) {
-                std::get<3>(fields) = getJsonField(json, names_vec[3], std::get<3>(fields));
-            }
-        }
-    }
+// Additional overloads for specific integer types to avoid ambiguity
+inline char fromJsonValue(const JsonStruct::JsonValue& value, const char& defaultValue) {
+    return static_cast<char>(value.toInt(defaultValue));
 }
 
+inline signed char fromJsonValue(const JsonStruct::JsonValue& value, const signed char& defaultValue) {
+    return static_cast<signed char>(value.toInt(defaultValue));
+}
+
+inline unsigned char fromJsonValue(const JsonStruct::JsonValue& value, const unsigned char& defaultValue) {
+    return static_cast<unsigned char>(value.toInt(defaultValue));
+}
+
+inline short fromJsonValue(const JsonStruct::JsonValue& value, const short& defaultValue) {
+    return static_cast<short>(value.toInt(defaultValue));
+}
+
+inline unsigned short fromJsonValue(const JsonStruct::JsonValue& value, const unsigned short& defaultValue) {
+    return static_cast<unsigned short>(value.toInt(defaultValue));
+}
+
+inline unsigned int fromJsonValue(const JsonStruct::JsonValue& value, const unsigned int& defaultValue) {
+    return static_cast<unsigned int>(value.toInt(defaultValue));
+}
+
+inline long fromJsonValue(const JsonStruct::JsonValue& value, const long& defaultValue) {
+    return static_cast<long>(value.toLongLong(defaultValue));
+}
+
+inline unsigned long fromJsonValue(const JsonStruct::JsonValue& value, const unsigned long& defaultValue) {
+    return static_cast<unsigned long>(value.toLongLong(defaultValue));
+}
+
+inline unsigned long long fromJsonValue(const JsonStruct::JsonValue& value, const unsigned long long& defaultValue) {
+    return static_cast<unsigned long long>(value.toLongLong(defaultValue));
+}
+
+// Helper functions for field operations
 template<typename T>
-T getJsonField(const JsonStruct::JsonObject& json, const std::string& key, const T& defaultValue = T{}) {
+T getJsonField(const JsonStruct::JsonValue::ObjectType& json, const std::string& key, const T& defaultValue) {
     auto it = json.find(key);
     if (it == json.end()) {
         return defaultValue;
@@ -175,15 +213,17 @@ T getJsonField(const JsonStruct::JsonObject& json, const std::string& key, const
 }
 
 template<typename T>
-void setJsonField(JsonStruct::JsonObject& json, const std::string& key, const T& value) {
+void setJsonField(JsonStruct::JsonValue::ObjectType& json, const std::string& key, const T& value) {
     json[key] = toJsonValue(value);
 }
 
+// Improved JSON_AUTO macro with proper method definitions
 #define JSON_AUTO(...) \
 JSON_FIELDS(__VA_ARGS__) \
-    JsonStruct::JsonObject toJson() const { \
-        return ::toJson(*this); \
-} \
-    void fromJson(const JsonStruct::JsonObject& json) { \
+public: \
+    JsonStruct::JsonValue toJson() const { \
+        return JsonStruct::JsonValue(::toJson(*this)); \
+    } \
+    void fromJson(const JsonStruct::JsonValue::ObjectType& json) { \
         ::fromJson(*this, json); \
-}
+    }

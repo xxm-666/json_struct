@@ -7,6 +7,7 @@
  * 它是整个类型注册系统的用户接口核心。
  */
 
+#include "../json_engine/json_value.h"
 #include <tuple>
 #include <sstream>
 #include <vector>
@@ -62,10 +63,7 @@ inline std::vector<std::string> split_field_names(const std::string& names) {
     }                                                     \
     static std::vector<std::string> get_field_names() {  \
         return JsonStruct::FieldMacros::split_field_names(json_field_names()); \
-    }                                                     \
-    std::string toJsonString(int indent = 0) const;      \
-    static auto fromJsonString(const std::string& json); \
-    void fromJson(const JsonStruct::Json& json)
+    }
 
 /**
  * 🔧 高级宏：自定义序列化行为

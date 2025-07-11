@@ -86,11 +86,41 @@ add_executable(test_comprehensive_demo
 target_link_libraries(test_comprehensive_demo jsonstruct_core)
 target_compile_features(test_comprehensive_demo PRIVATE cxx_std_17)
 
-# add_executable(test_std_system
-#     tests/test_std_system.cpp
-# )
-# target_link_libraries(test_std_system jsonstruct_core)
-# target_compile_features(test_std_system PRIVATE cxx_std_17)
+add_executable(test_type_registry_core
+    tests/test_type_registry_core.cpp
+)
+target_link_libraries(test_type_registry_core jsonstruct_core)
+target_compile_features(test_type_registry_core PRIVATE cxx_std_17)
+
+add_executable(test_json_auto
+    tests/test_json_auto.cpp
+)
+target_link_libraries(test_json_auto jsonstruct_core)
+target_compile_features(test_json_auto PRIVATE cxx_std_17)
+
+add_executable(test_comprehensive_json_auto
+    tests/test_comprehensive_json_auto.cpp
+)
+target_link_libraries(test_comprehensive_json_auto jsonstruct_core)
+target_compile_features(test_comprehensive_json_auto PRIVATE cxx_std_17)
+
+add_executable(test_core_functionality
+    tests/test_core_functionality.cpp
+)
+target_link_libraries(test_core_functionality jsonstruct_core)
+target_compile_features(test_core_functionality PRIVATE cxx_std_17)
+
+add_executable(test_advanced_functionality
+    tests/test_advanced_functionality.cpp
+)
+target_link_libraries(test_advanced_functionality jsonstruct_core)
+target_compile_features(test_advanced_functionality PRIVATE cxx_std_17)
+
+add_executable(test_basic_macros
+    tests/test_basic_macros.cpp
+)
+target_link_libraries(test_basic_macros jsonstruct_core)
+target_compile_features(test_basic_macros PRIVATE cxx_std_17)
 
 add_executable(example_enhanced_simple
     examples/example_enhanced_simple.cpp
@@ -103,6 +133,24 @@ add_executable(example_jsonpath_complete
 )
 target_link_libraries(example_jsonpath_complete jsonstruct_core)
 target_compile_features(example_jsonpath_complete PRIVATE cxx_std_17)
+
+add_executable(test_debug_serialization
+    tests/test_debug_serialization.cpp
+)
+target_link_libraries(test_debug_serialization jsonstruct_core)
+target_compile_features(test_debug_serialization PRIVATE cxx_std_17)
+
+add_executable(test_performance_struct
+    tests/test_performance_struct.cpp
+)
+target_link_libraries(test_performance_struct jsonstruct_core)
+target_compile_features(test_performance_struct PRIVATE cxx_std_17)
+
+add_executable(test_performance_pattern
+    tests/test_performance_pattern.cpp
+)
+target_link_libraries(test_performance_pattern jsonstruct_core)
+target_compile_features(test_performance_pattern PRIVATE cxx_std_17)
 
 # Advanced JSONPath feature test (legacy - use test_jsonpath_unified instead)
 # add_executable(test_advanced_jsonpath tests/test_advanced_jsonpath.cpp)
@@ -126,6 +174,12 @@ add_custom_target(tests
         test_enhanced_features
         test_comprehensive_demo
         test_std_system
+        test_type_registry_core
+        test_json_auto
+        test_comprehensive_json_auto
+        test_core_functionality
+        test_advanced_functionality
+        test_basic_macros
 )
 
 add_custom_target(examples

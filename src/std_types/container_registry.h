@@ -66,6 +66,41 @@ private:
                 return defaultValue;
             }
         );
+
+        // std::vector<std::vector<int>> 注册 (嵌套向量)
+        JsonStruct::TypeRegistry::instance().registerType<std::vector<std::vector<int>>>(
+            // toJson
+            [](const std::vector<std::vector<int>>& vec) -> JsonValue {
+                JsonValue::ArrayType arr;
+                for (const auto& innerVec : vec) {
+                    JsonValue::ArrayType innerArr;
+                    for (const auto& item : innerVec) {
+                        innerArr.push_back(JsonValue(item));
+                    }
+                    arr.push_back(JsonValue(innerArr));
+                }
+                return JsonValue(arr);
+            },
+            // fromJson
+            [](const JsonValue& json, const std::vector<std::vector<int>>& defaultValue) -> std::vector<std::vector<int>> {
+                if (json.isArray()) {
+                    std::vector<std::vector<int>> result;
+                    const auto& arr = json.toArray();
+                    for (size_t i = 0; i < arr.size(); ++i) {
+                        if (arr[i].isArray()) {
+                            std::vector<int> innerVec;
+                            const auto& innerArr = arr[i].toArray();
+                            for (size_t j = 0; j < innerArr.size(); ++j) {
+                                innerVec.push_back(innerArr[j].toInt(0));
+                            }
+                            result.push_back(innerVec);
+                        }
+                    }
+                    return result;
+                }
+                return defaultValue;
+            }
+        );
     }
     
     // std::list<int> 注册
