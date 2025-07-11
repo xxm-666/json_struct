@@ -15,14 +15,13 @@ void JsonValueEnhanced::dumpImpl(std::ostream& os, const SerializeOptions& optio
             os << "null";
         } else if constexpr (std::is_same_v<T, bool>) {
             os << (value ? "true" : "false");
-        } else if constexpr (std::is_same_v<T, double>) {
-            // 智能数值格式化
-            if (value == std::floor(value) && std::isfinite(value) && 
-                std::abs(value) <= static_cast<double>(LLONG_MAX)) {
-                os << static_cast<long long>(value);
+        } else if constexpr (std::is_same_v<T, JsonNumber>) {
+            // 使用JsonNumber的智能格式化
+            if (value.isInteger()) {
+                os << value.toInteger();
             } else {
-                // 使用指定精度
-                os << std::setprecision(options.maxPrecision) << value;
+                // 浮点数使用指定精度
+                os << std::setprecision(options.maxPrecision) << value.toDouble();
             }
         } else if constexpr (std::is_same_v<T, std::string>) {
             os << "\"" << escapeString(value, options.escapeUnicode) << "\"";
@@ -205,6 +204,8 @@ JsonValueEnhanced JsonValueEnhanced::parseBool(ParseContext& ctx) {
 
 JsonValueEnhanced JsonValueEnhanced::parseNumber(ParseContext& ctx) {
     size_t start = ctx.position;
+    bool hasDecimal = false;
+    bool hasExponent = false;
     
     // 符号
     if (ctx.peek() == '-') {
@@ -232,6 +233,7 @@ JsonValueEnhanced JsonValueEnhanced::parseNumber(ParseContext& ctx) {
     
     // 小数部分
     if (ctx.hasMore() && ctx.peek() == '.') {
+        hasDecimal = true;
         ctx.advance(ctx.peek());
         if (!ctx.hasMore() || !std::isdigit(ctx.peek())) {
             throw std::runtime_error("Invalid number format: expected digit after '.' at " + ctx.locationInfo());
@@ -243,6 +245,7 @@ JsonValueEnhanced JsonValueEnhanced::parseNumber(ParseContext& ctx) {
     
     // 指数部分
     if (ctx.hasMore() && (ctx.peek() == 'e' || ctx.peek() == 'E')) {
+        hasExponent = true;
         ctx.advance(ctx.peek());
         if (ctx.hasMore() && (ctx.peek() == '+' || ctx.peek() == '-')) {
             ctx.advance(ctx.peek());
@@ -257,15 +260,37 @@ JsonValueEnhanced JsonValueEnhanced::parseNumber(ParseContext& ctx) {
     
     auto numStr = ctx.source.substr(start, ctx.position - start);
     
-    // 使用std::from_chars进行高效转换
-    double result;
-    auto [ptr, ec] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), result);
-    if (ec != std::errc{}) {
-        throw std::runtime_error("Failed to parse number '" + std::string(numStr) + 
-                                "' at " + ctx.locationInfo());
+    // 根据格式智能选择解析方式
+    if (hasDecimal || hasExponent) {
+        // 浮点数
+        double result;
+        auto [ptr, ec] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), result);
+        if (ec != std::errc{}) {
+            throw std::runtime_error("Failed to parse number '" + std::string(numStr) + 
+                                    "' at " + ctx.locationInfo());
+        }
+        return JsonValueEnhanced(result);
+    } else {
+        // 整数：先尝试解析为int64_t
+        try {
+            int64_t intResult;
+            auto [ptr, ec] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), intResult);
+            if (ec == std::errc{}) {
+                return JsonValueEnhanced(static_cast<long long>(intResult));
+            }
+        } catch (...) {
+            // 整数解析失败，回退到double
+        }
+        
+        // 回退到double解析
+        double result;
+        auto [ptr, ec] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), result);
+        if (ec != std::errc{}) {
+            throw std::runtime_error("Failed to parse number '" + std::string(numStr) + 
+                                    "' at " + ctx.locationInfo());
+        }
+        return JsonValueEnhanced(result);
     }
-    
-    return JsonValueEnhanced(result);
 }
 
 std::string JsonValueEnhanced::parseUnicodeEscape(std::string_view str, size_t& pos) {

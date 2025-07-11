@@ -6,26 +6,28 @@
 #include <climits>
 #include <cmath>
 #include <cfloat>
+#include <limits>
 
 namespace JsonStruct {
 
 /**
- * @brief 高精度JSON数值类型，解决long long->double精度丢失问题
- * 
- * 这个类专门设计来处理JSON中的数值类型，支持：
- * - 64位整数(int64_t)的精确存储和操作
- * - 64位浮点数(double)的精确存储和操作  
- * - 安全的类型转换，避免精度丢失
- * - IEEE 754 安全整数范围检查
+ * @brief High-precision JSON number type, solves long long -> double precision loss
+ *
+ * This class is designed to handle JSON numeric types, supporting:
+ * - Precise storage and operations for 64-bit integers (int64_t)
+ * - Precise storage and operations for 64-bit floating point numbers (double)
+ * - Safe type conversions to avoid precision loss
+ * - IEEE 754 safe integer range checking
+ * - IEEE 754 special value support (NaN, Infinity)
  */
 class JsonNumber {
 public:
     enum Type {
-        Integer,    ///< 64位整数类型
-        Double      ///< 64位浮点数类型
+        Integer,    ///< 64-bit integer type
+        Double      ///< 64-bit floating point type
     };
     
-    // IEEE 754 double 的安全整数范围
+    // Safe integer range for IEEE 754 double
     static constexpr int64_t SAFE_INTEGER_MAX = 9007199254740992LL;   // 2^53
     static constexpr int64_t SAFE_INTEGER_MIN = -9007199254740992LL;  // -2^53
 
@@ -37,7 +39,7 @@ private:
     };
 
 public:
-    // 构造函数
+    // Constructor
     JsonNumber() : type_(Integer), intValue_(0) {}
     JsonNumber(int32_t val) : type_(Integer), intValue_(val) {}
     JsonNumber(int64_t val) : type_(Integer), intValue_(val) {}
@@ -53,8 +55,30 @@ public:
     }
     JsonNumber(float val) : type_(Double), doubleValue_(static_cast<double>(val)) {}
     JsonNumber(double val) : type_(Double), doubleValue_(val) {}
+    
+    // Static factory methods for special values
+    static JsonNumber makeNaN() {
+        JsonNumber num;
+        num.type_ = Double;
+        num.doubleValue_ = std::numeric_limits<double>::quiet_NaN();
+        return num;
+    }
+    
+    static JsonNumber makeInfinity() {
+        JsonNumber num;
+        num.type_ = Double;
+        num.doubleValue_ = std::numeric_limits<double>::infinity();
+        return num;
+    }
+    
+    static JsonNumber makeNegativeInfinity() {
+        JsonNumber num;
+        num.type_ = Double;
+        num.doubleValue_ = -std::numeric_limits<double>::infinity();
+        return num;
+    }
 
-    // 拷贝构造和赋值
+    // Copy constructor and assignment
     JsonNumber(const JsonNumber& other) : type_(other.type_) {
         if (type_ == Integer) {
             intValue_ = other.intValue_;
@@ -75,7 +99,7 @@ public:
         return *this;
     }
 
-    // 移动构造和赋值
+    // Move constructor and assignment
     JsonNumber(JsonNumber&& other) noexcept : type_(other.type_) {
         if (type_ == Integer) {
             intValue_ = other.intValue_;
@@ -96,21 +120,48 @@ public:
         return *this;
     }
 
-    // 析构函数
+    // Destructor
     ~JsonNumber() = default;
 
-    // 类型查询
+    // Type queries
     Type getType() const noexcept { return type_; }
     bool isInteger() const noexcept { return type_ == Integer; }
     bool isDouble() const noexcept { return type_ == Double; }
+    
+    // IEEE 754 special value queries
+    bool isNaN() const noexcept {
+        return type_ == Double && std::isnan(doubleValue_);
+    }
+    
+    bool isInfinity() const noexcept {
+        return type_ == Double && std::isinf(doubleValue_);
+    }
+    
+    bool isPositiveInfinity() const noexcept {
+        return type_ == Double && std::isinf(doubleValue_) && doubleValue_ > 0;
+    }
+    
+    bool isNegativeInfinity() const noexcept {
+        return type_ == Double && std::isinf(doubleValue_) && doubleValue_ < 0;
+    }
+    
+    bool isFinite() const noexcept {
+        if (type_ == Integer) return true;
+        return type_ == Double && std::isfinite(doubleValue_);
+    }
+    
+    bool isNormal() const noexcept {
+        if (type_ == Integer) return intValue_ != 0;
+        return type_ == Double && std::isnormal(doubleValue_);
+    }
 
-    // 安全获取原始值
+    // Safe value access
     std::optional<int64_t> getInteger() const noexcept {
         if (type_ == Integer) {
             return intValue_;
         }
         if (type_ == Double && doubleValue_ == std::floor(doubleValue_)) {
-            // 检查double是否在安全整数范围内
+            // Check if double is within safe integer range
             if (doubleValue_ >= static_cast<double>(LLONG_MIN) && 
                 doubleValue_ <= static_cast<double>(LLONG_MAX)) {
                 return static_cast<int64_t>(doubleValue_);
@@ -129,7 +180,7 @@ public:
         return std::nullopt;
     }
 
-    // 强制类型转换（带范围检查）
+    // Forced type conversion (with range check)
     int64_t toInteger() const {
         if (type_ == Integer) {
             return intValue_;
@@ -150,23 +201,23 @@ public:
             return doubleValue_;
         }
         if (type_ == Integer) {
-            // 检查整数是否在安全double范围内
+            // Check if integer is within safe double range
             if (intValue_ > SAFE_INTEGER_MAX || intValue_ < SAFE_INTEGER_MIN) {
-                // 注意：这里会有精度丢失，但这是从整数到浮点数的常见情况
+                // Note: There will be precision loss here, but this is common when converting from integer to floating point
             }
             return static_cast<double>(intValue_);
         }
         return 0.0;
     }
 
-    // 类型转换（带默认值）
+    // Type conversion (with default value)
     int32_t toInt32(int32_t defaultValue = 0) const noexcept {
         if (type_ == Integer) {
             if (intValue_ >= INT32_MIN && intValue_ <= INT32_MAX) {
                 return static_cast<int32_t>(intValue_);
             }
         } else if (type_ == Double) {
-            // 对于浮点数，进行截断转换（向后兼容行为）
+            // For floating point numbers, perform truncation conversion (to maintain backward compatibility)
             if (doubleValue_ >= INT32_MIN && doubleValue_ <= INT32_MAX) {
                 return static_cast<int32_t>(doubleValue_);
             }
@@ -178,7 +229,7 @@ public:
         if (type_ == Integer) {
             return intValue_;
         } else if (type_ == Double) {
-            // 对于浮点数，进行截断转换（向后兼容行为）
+            // For floating point numbers, perform truncation conversion (to maintain backward compatibility)
             if (doubleValue_ >= LLONG_MIN && doubleValue_ <= LLONG_MAX) {
                 return static_cast<int64_t>(doubleValue_);
             }
@@ -197,7 +248,7 @@ public:
         return defaultValue;
     }
 
-    // 精度检查函数
+    // Precision check functions
     bool isInSafeIntegerRange() const noexcept {
         if (type_ == Integer) {
             return intValue_ >= SAFE_INTEGER_MIN && intValue_ <= SAFE_INTEGER_MAX;
@@ -227,19 +278,26 @@ public:
         return false;
     }
 
-    // 序列化
+    // Serialization
     std::string toString() const {
         if (type_ == Integer) {
             return std::to_string(intValue_);
         } else {
-            // 使用高精度格式化避免科学计数法
-            char buffer[32];
-            snprintf(buffer, sizeof(buffer), "%.15g", doubleValue_);
-            return std::string(buffer);
+            // Handle special values
+            if (std::isnan(doubleValue_)) {
+                return "NaN";
+            } else if (std::isinf(doubleValue_)) {
+                return doubleValue_ > 0 ? "Infinity" : "-Infinity";
+            } else {
+                // Use high-precision formatting to avoid scientific notation
+                char buffer[32];
+                snprintf(buffer, sizeof(buffer), "%.15g", doubleValue_);
+                return std::string(buffer);
+            }
         }
     }
 
-    // 比较操作符
+    // Comparison operators
     bool operator==(const JsonNumber& other) const noexcept {
         if (type_ == other.type_) {
             if (type_ == Integer) {
@@ -249,7 +307,7 @@ public:
             }
         }
         
-        // 跨类型比较
+        // Cross-type comparison
         if (type_ == Integer && other.type_ == Double) {
             return static_cast<double>(intValue_) == other.doubleValue_;
         }
@@ -272,7 +330,7 @@ public:
             return doubleValue_ < other.doubleValue_;
         }
         
-        // 跨类型比较
+        // Cross-type comparison
         double thisVal = toDouble();
         double otherVal = other.toDouble();
         return thisVal < otherVal;
@@ -290,53 +348,53 @@ public:
         return !(*this < other);
     }
 
-    // 数学运算
+    // Math operations
     JsonNumber operator+(const JsonNumber& other) const {
         if (type_ == Integer && other.type_ == Integer) {
-            // 检查整数溢出
+            // Check integer overflow
             if ((other.intValue_ > 0 && intValue_ > INT64_MAX - other.intValue_) ||
                 (other.intValue_ < 0 && intValue_ < INT64_MIN - other.intValue_)) {
-                // 溢出，使用double
+                // Overflow, use double
                 return JsonNumber(static_cast<double>(intValue_) + static_cast<double>(other.intValue_));
             }
             return JsonNumber(intValue_ + other.intValue_);
         }
         
-        // 有浮点数参与，使用double运算
+        // If either is double, use double arithmetic
         return JsonNumber(toDouble() + other.toDouble());
     }
 
     JsonNumber operator-(const JsonNumber& other) const {
         if (type_ == Integer && other.type_ == Integer) {
-            // 检查整数溢出
+            // Check integer overflow
             if ((other.intValue_ < 0 && intValue_ > INT64_MAX + other.intValue_) ||
                 (other.intValue_ > 0 && intValue_ < INT64_MIN + other.intValue_)) {
-                // 溢出，使用double
+                // Overflow, use double
                 return JsonNumber(static_cast<double>(intValue_) - static_cast<double>(other.intValue_));
             }
             return JsonNumber(intValue_ - other.intValue_);
         }
         
-        // 有浮点数参与，使用double运算
+        // If either is double, use double arithmetic
         return JsonNumber(toDouble() - other.toDouble());
     }
 
     JsonNumber operator*(const JsonNumber& other) const {
         if (type_ == Integer && other.type_ == Integer) {
-            // 检查整数溢出
+            // Check integer overflow
             if (intValue_ != 0 && other.intValue_ != 0) {
                 if ((intValue_ > 0 && other.intValue_ > 0 && intValue_ > INT64_MAX / other.intValue_) ||
                     (intValue_ < 0 && other.intValue_ < 0 && intValue_ < INT64_MAX / other.intValue_) ||
                     (intValue_ > 0 && other.intValue_ < 0 && other.intValue_ < INT64_MIN / intValue_) ||
                     (intValue_ < 0 && other.intValue_ > 0 && intValue_ < INT64_MIN / other.intValue_)) {
-                    // 溢出，使用double
+                    // Overflow, use double
                     return JsonNumber(static_cast<double>(intValue_) * static_cast<double>(other.intValue_));
                 }
             }
             return JsonNumber(intValue_ * other.intValue_);
         }
         
-        // 有浮点数参与，使用double运算
+        // If either is double, use double arithmetic
         return JsonNumber(toDouble() * other.toDouble());
     }
 
@@ -345,11 +403,11 @@ public:
             throw std::runtime_error("Division by zero");
         }
         
-        // 除法总是返回double以避免精度问题
+        // Division always returns double to avoid precision issues
         return JsonNumber(toDouble() / other.toDouble());
     }
 
-    // 调试信息
+    // Debug info
     std::string debugInfo() const {
         std::string info = "JsonNumber{type=";
         info += (type_ == Integer) ? "Integer" : "Double";
