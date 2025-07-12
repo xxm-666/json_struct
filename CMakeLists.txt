@@ -24,7 +24,7 @@ set(CORE_HEADERS
     src/type_registry/field_macros.h
     src/std_types/std_registry.h
     src/std_types/container_registry.h
-    # src/std_types/custom_types_example.h
+    src/std_types/custom_types_example.h
     src/qt_types/qt_registry.h
     src/json_engine/json_value.h
     src/json_engine/json_number.h
@@ -152,6 +152,12 @@ add_executable(test_performance_pattern
 target_link_libraries(test_performance_pattern jsonstruct_core)
 target_compile_features(test_performance_pattern PRIVATE cxx_std_17)
 
+add_executable(test_custom_types
+    tests/test_custom_types.cpp
+)
+target_link_libraries(test_custom_types jsonstruct_core)
+target_compile_features(test_custom_types PRIVATE cxx_std_17)
+
 # Advanced JSONPath feature test (legacy - use test_jsonpath_unified instead)
 # add_executable(test_advanced_jsonpath tests/test_advanced_jsonpath.cpp)
 # target_link_libraries(test_advanced_jsonpath jsonstruct_core)
@@ -180,6 +186,7 @@ add_custom_target(tests
         test_core_functionality
         test_advanced_functionality
         test_basic_macros
+        test_custom_types
 )
 
 add_custom_target(examples

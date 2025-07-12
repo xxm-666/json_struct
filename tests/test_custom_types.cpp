@@ -1,30 +1,20 @@
-#pragma once
-#include "../type_registry/registry_core.h"
+#include "jsonstruct.h"
 #include <cmath>
 #include <iostream>
+#include <cassert>
 
 namespace JsonStruct {
 
 // Example custom type: 3D point
 struct Point3D {
     double x, y, z;
-    // Poin    // 序列化
-    JsonValue json = JsonStruct::TypeRegistry::instance().toJson(complex);
-    std::string jsonStr = json.dump(2);
-    std::cout << "Serialized: " << jsonStr << std::endl;
-    
-    // 反序列化
-    JsonValue parsed = JsonValue::parse(jsonStr);
-    ComplexData restored = JsonStruct::TypeRegistry::instance().fromJson<ComplexData>(parsed, ComplexData());le x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
-    
+    Point3D(double x = 0., double y=0., double z=0.) : x(x), y(y), z(z) {}
+
     bool operator==(const Point3D& other) const {
-        return std::abs(x - other.x) < 1e-9 && 
-               std::abs(y - other.y) < 1e-9 && 
-               std::abs(z - other.z) < 1e-9;
+        return x == other.x && y == other.y && z == other.z;
     }
 };
 
-// 示例自定义类型：用户信息
 struct UserInfo {
     std::string name;
     int age;
@@ -77,7 +67,7 @@ REGISTER_JSON_TYPE(UserInfo,
         
         return JsonValue(obj);
     },
-    // Deserialization function
+    // Deserialization function - 修复版本
     [](const JsonValue& json, const UserInfo& defaultValue) -> UserInfo {
         if (json.isObject()) {
             const auto& obj = json.toObject();
@@ -85,7 +75,7 @@ REGISTER_JSON_TYPE(UserInfo,
             
             auto nameIt = obj.find("name");
             if (nameIt != obj.end()) {
-                user.name = nameIt->second.toString("");
+                user.name = nameIt->second.toString();
             }
             
             auto ageIt = obj.find("age");
@@ -97,7 +87,7 @@ REGISTER_JSON_TYPE(UserInfo,
             if (hobbiesIt != obj.end() && hobbiesIt->second.isArray()) {
                 const auto& hobbiesArr = hobbiesIt->second.toArray();
                 for (size_t i = 0; i < hobbiesArr.size(); ++i) {
-                    user.hobbies.push_back(hobbiesArr[i].toString(""));
+                    user.hobbies.emplace_back(hobbiesArr[i].toString());
                 }
             }
             
@@ -175,14 +165,9 @@ REGISTER_JSON_TYPE(ComplexData,
 
 } // namespace JsonStruct
 
-/* 使用示例:
-
-#include "std_custom_types_example.h"
-
 int main() {
     using namespace JsonStruct;
     
-    // 创建自定义类型实�?
     Point3D point(1.0, 2.0, 3.0);
     UserInfo user("Alice", 25);
     user.hobbies = {"reading", "coding", "music"};
@@ -192,19 +177,26 @@ int main() {
     complex.user = user;
     complex.path = {Point3D(0,0,0), Point3D(1,1,1), Point3D(2,2,2)};
     
-    // 序列�?
     JsonValue json = TypeRegistry::instance().toJson(complex);
     std::string jsonStr = json.dump(2);
     std::cout << "Serialized: " << jsonStr << std::endl;
     
-    // 反序列化
     JsonValue parsed = JsonValue::parse(jsonStr);
     ComplexData restored = TypeRegistry::instance().fromJson<ComplexData>(parsed, ComplexData());
     
-    // 验证
+    std::cout << "\n=== Test Results ===" << std::endl;
+    std::cout << "Original user name: '" << complex.user.name << "'" << std::endl;
+    std::cout << "Restored user name: '" << restored.user.name << "'" << std::endl;
+    std::cout << "Original user hobbies count: " << complex.user.hobbies.size() << std::endl;
+    std::cout << "Restored user hobbies count: " << restored.user.hobbies.size() << std::endl;
+    if (!restored.user.hobbies.empty()) {
+        std::cout << "First restored hobby: '" << restored.user.hobbies[0] << "'" << std::endl;
+    }
+    std::cout << "===================" << std::endl;
+    
     assert(complex == restored);
+    std::cout << "✅ All tests passed!" << std::endl;
     
     return 0;
 }
 
-*/

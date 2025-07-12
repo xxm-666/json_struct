@@ -7,14 +7,12 @@
 #include <sstream>
 #include <vector>
 
-// JSON_FIELDS 宏现在在 field_macros.h 中定义
-
 template<typename T>
 constexpr bool is_json_primitive_v =
     std::is_arithmetic_v<T> ||
     std::is_same_v<T, std::string>;
 
-// 检查类型是否有json_fields方法
+// Chjeck if a type has a json_fields method
 template<typename T>
 struct has_json_fields {
     template<typename U>
@@ -35,12 +33,12 @@ template<typename T> void setJsonField(JsonStruct::JsonValue::ObjectType& json, 
 
 template<typename T>
 JsonStruct::JsonValue toJsonValue(const T& value) {
-    // 首先检查是否在类型注册表中
+    // First check if the type is registered in the type registry
     if (JsonStruct::TypeRegistry::instance().isRegistered<T>()) {
         return JsonStruct::TypeRegistry::instance().toJson(value);
     }
     
-    // 基础类型处理
+    // Basic type handling
     if constexpr (std::is_same_v<T, bool>) {
         return JsonStruct::JsonValue(value);
     }
@@ -75,8 +73,7 @@ struct tuple_size_helper {
 template<typename T, std::size_t... I>
 JsonStruct::JsonValue::ObjectType toJsonImpl(const T& obj, std::index_sequence<I...>) {
     JsonStruct::JsonValue::ObjectType json;
-    auto names_str = std::string(T::json_field_names());
-    auto names_vec = JsonStruct::FieldMacros::split_field_names(names_str);
+    auto names_vec = T::get_field_names();
     auto fields = obj.json_fields();
     
     // Use fold expression (C++17) to set all fields
@@ -96,8 +93,7 @@ toJson(const T& obj) {
 // Helper for deserialization using index sequence
 template<typename T, std::size_t... I>
 void fromJsonImpl(T& obj, const JsonStruct::JsonValue::ObjectType& json, std::index_sequence<I...>) {
-    auto names_str = std::string(T::json_field_names());
-    auto names_vec = JsonStruct::FieldMacros::split_field_names(names_str);
+    auto names_vec = T::get_field_names();
     auto fields = obj.json_fields();
     
     // Use fold expression to deserialize all fields
@@ -120,7 +116,7 @@ fromJsonValue(const JsonStruct::JsonValue& value, const T& defaultValue) {
         return defaultValue;
     }
     
-    // 首先检查是否在类型注册表中
+    // First check if the type is registered in the type registry
     if (JsonStruct::TypeRegistry::instance().isRegistered<T>()) {
         return JsonStruct::TypeRegistry::instance().fromJson(value, defaultValue);
     }

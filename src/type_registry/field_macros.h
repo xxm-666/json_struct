@@ -1,10 +1,10 @@
 #pragma once
 
 /**
- * JSON_FIELDS 宏定义 - 类型注册的核心宏
+ * JSON_FIELDS macro definition - Core macro for type registration
  * 
- * 这个头文件包含了用户最常用的 JSON_FIELDS 宏，
- * 它是整个类型注册系统的用户接口核心。
+ * This header contains the most commonly used JSON_FIELDS macro,
+ * which is the core user interface for the type registration system.
  */
 
 #include "../json_engine/json_value.h"
@@ -17,7 +17,7 @@ namespace JsonStruct {
 namespace FieldMacros {
 
 /**
- * 辅助函数：解析字段名字符串
+ * Helper function: Parse field name string
  */
 inline std::vector<std::string> split_field_names(const std::string& names) {
     std::vector<std::string> result;
@@ -36,21 +36,6 @@ inline std::vector<std::string> split_field_names(const std::string& names) {
 } // namespace FieldMacros
 } // namespace JsonStruct
 
-/**
- * 🎯 JSON_FIELDS 宏 - 一行代码完成类型注册
- * 
- * 这是用户最重要的接口，通过这个宏可以为任何结构体
- * 快速添加JSON序列化/反序列化能力。
- * 
- * 使用方法：
- * struct MyStruct {
- *     std::string name;
- *     int age;
- *     std::vector<double> scores;
- *     
- *     JSON_FIELDS(name, age, scores)
- * };
- */
 #define JSON_FIELDS(...)                                  \
     auto json_fields() const {                            \
         return std::tie(__VA_ARGS__);                     \
@@ -66,18 +51,18 @@ inline std::vector<std::string> split_field_names(const std::string& names) {
     }
 
 /**
- * 🔧 高级宏：自定义序列化行为
+ * 🔧 Advanced macro for custom serialization behavior.
  * 
- * 为需要特殊处理的类型提供更多控制
+ * Provides more control for types that need special handling.
  */
 #define JSON_FIELDS_WITH_OPTIONS(options, ...)           \
     JSON_FIELDS(__VA_ARGS__)                             \
     static constexpr auto json_options() { return options; }
 
 /**
- * 📦 便捷宏：只读序列化
- * 
- * 仅支持序列化，不支持反序列化
+ * 📦 Convenient macro: Read-only serialization
+ *    
+ * Only supports serialization, does not support deserialization
  */
 #define JSON_FIELDS_READONLY(...)                        \
     auto json_fields() const {                           \
@@ -89,16 +74,16 @@ inline std::vector<std::string> split_field_names(const std::string& names) {
     std::string toJsonString(int indent = 0) const
 
 /**
- * 🎨 使用示例和最佳实践：
+ * 🎨 Usage examples and best practices:
  * 
- * // 基础用法
+ * // Basic usage
  * struct User {
  *     std::string name;
  *     int age;
  *     JSON_FIELDS(name, age)
  * };
  * 
- * // 复杂嵌套类型
+ * // Complex nested type
  * struct Config {
  *     std::map<std::string, std::vector<int>> data;
  *     std::optional<User> admin;
@@ -106,7 +91,7 @@ inline std::vector<std::string> split_field_names(const std::string& names) {
  *     JSON_FIELDS(data, admin, tags)
  * };
  * 
- * // 只读序列化
+ * // Read-only serialization
  * struct ReadOnlyData {
  *     std::string computed_value;
  *     JSON_FIELDS_READONLY(computed_value)

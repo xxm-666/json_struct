@@ -8,7 +8,7 @@
 
 namespace JsonStruct {
 
-// 类型序列化器接口
+// Type serializer interface
 class ITypeSerializer {
 public:
     virtual ~ITypeSerializer() = default;
@@ -17,7 +17,7 @@ public:
     virtual std::type_index getTypeIndex() const = 0;
 };
 
-// 模板化的类型序列化器实现
+// Templated type serializer implementation
 template<typename T>
 class TypeSerializer : public ITypeSerializer {
 public:
@@ -62,7 +62,7 @@ public:
         return registry;
     }
     
-    // 注册类型序列化器
+    // Register type serializer
     template<typename T>
     void registerType(
         std::function<JsonValue(const T&)> toJson,
@@ -76,7 +76,7 @@ public:
         serializers_[typeIdx] = std::move(serializer);
     }
     
-    // 检查类型是否已注册
+    // Check if type is registered
     template<typename T>
     bool isRegistered() const {
         std::type_index typeIdx(typeid(T));
@@ -94,7 +94,7 @@ public:
         return JsonValue(); // Type not registered
     }
     
-    // 反序列化已注册的类型
+    // Deserialize registered types
     template<typename T>
     T fromJson(const JsonValue& json, const T& defaultValue) const {
         std::type_index typeIdx(typeid(T));
@@ -129,7 +129,7 @@ private:
     std::unordered_map<std::type_index, std::unique_ptr<ITypeSerializer>> serializers_;
 };
 
-// 便利宏：注册类型
+/// Simple type registration macro
 #define REGISTER_JSON_TYPE(Type, toJsonImpl, fromJsonImpl) \
     namespace { \
         struct Type##Registrar { \

@@ -7,18 +7,17 @@
 
 namespace JsonStruct {
 
-// 标准C++类型注册
+// Standard C++ type registration
 class StdTypesRegistration {
 public:
     static void registerAllStdTypes() {
         registerStdVector();
         registerStdList();
         registerStdMap();
-        // 可以继续添加更多标准类型...
     }
 
 private:
-    // std::vector<int> 注册
+    // std::vector<int> registration
     static void registerStdVector() {
         JsonStruct::TypeRegistry::instance().registerType<std::vector<int>>(
             // toJson
@@ -43,7 +42,7 @@ private:
             }
         );
 
-        // std::vector<std::string> 注册
+        // std::vector<std::string> registration
         JsonStruct::TypeRegistry::instance().registerType<std::vector<std::string>>(
             // toJson
             [](const std::vector<std::string>& vec) -> JsonValue {
@@ -67,7 +66,7 @@ private:
             }
         );
 
-        // std::vector<std::vector<int>> 注册 (嵌套向量)
+        // std::vector<std::vector<int>> registration (nested vector)
         JsonStruct::TypeRegistry::instance().registerType<std::vector<std::vector<int>>>(
             // toJson
             [](const std::vector<std::vector<int>>& vec) -> JsonValue {
@@ -103,7 +102,7 @@ private:
         );
     }
     
-    // std::list<int> 注册
+    // std::list<int> registration
     static void registerStdList() {
         JsonStruct::TypeRegistry::instance().registerType<std::list<int>>(
             // toJson
@@ -129,7 +128,7 @@ private:
         );
     }
     
-    // std::map<std::string, int> 注册
+    // std::map<std::string, int> registration
     static void registerStdMap() {
         JsonStruct::TypeRegistry::instance().registerType<std::map<std::string, int>>(
             // toJson
@@ -154,7 +153,7 @@ private:
             }
         );
 
-        // std::map<std::string, std::string> 注册
+        // std::map<std::string, std::string> registration
         JsonStruct::TypeRegistry::instance().registerType<std::map<std::string, std::string>>(
             // toJson
             [](const std::map<std::string, std::string>& mp) -> JsonValue {

@@ -11,7 +11,7 @@
 
 namespace JsonStruct {
 
-// Qt类型注册
+// Qt type registration
 class QtTypesRegistration {
 public:
     static void registerAllQtTypes() {
@@ -21,11 +21,10 @@ public:
         registerQRect();
         registerQColor();
         registerQListQPointF();
-        // 可以继续添加更多Qt类型...
     }
 
 private:
-    // QStringList 注册
+    // QStringList registration
     static void registerQStringList() {
         TypeRegistry::instance().registerType<QStringList>(
             // toJson
@@ -43,14 +42,14 @@ private:
                     for (const auto& item : json.toArray()) {
                         result << item.toString();
                     }
-                    return result; // 直接返回结果，支持空数组
+                    return result; // Directly return result, supports empty array
                 }
-                return defaultValue; // 只有当不是数组时才返回默认�?
+                return defaultValue; // Only return default when not an array
             }
         );
     }
     
-    // QPointF 注册
+    // QPointF registration
     static void registerQPointF() {
         TypeRegistry::instance().registerType<QPointF>(
             // toJson
@@ -71,7 +70,7 @@ private:
         );
     }
     
-    // QRectF 注册
+    // QRectF registration
     static void registerQRectF() {
         TypeRegistry::instance().registerType<QRectF>(
             // toJson
@@ -97,7 +96,7 @@ private:
         );
     }
     
-    // QRect 注册
+    // QRect registration
     static void registerQRect() {
         TypeRegistry::instance().registerType<QRect>(
             // toJson
@@ -123,7 +122,7 @@ private:
         );
     }
     
-    // QColor 注册
+    // QColor registration
     static void registerQColor() {
         TypeRegistry::instance().registerType<QColor>(
             // toJson
@@ -149,14 +148,14 @@ private:
         );
     }
     
-    // QList<QPointF> 注册
+    // QList<QPointF> registration
     static void registerQListQPointF() {
         TypeRegistry::instance().registerType<QList<QPointF>>(
             // toJson
             [](const QList<QPointF>& list) -> QJsonValue {
                 QJsonArray arr;
                 for (const auto& point : list) {
-                    // 使用已注册的QPointF序列化器
+                    // Use the registered QPointF serializer
                     arr.append(TypeRegistry::instance().toJson(point));
                 }
                 return arr;
@@ -166,18 +165,18 @@ private:
                 if (json.isArray()) {
                     QList<QPointF> result;
                     for (const auto& item : json.toArray()) {
-                        // 使用已注册的QPointF反序列化�?
+                        // Use the registered QPointF deserializer
                         result << TypeRegistry::instance().fromJson<QPointF>(item, QPointF());
                     }
-                    return result; // 直接返回结果，支持空数组
+                    return result; // Directly return result, supports empty array
                 }
-                return defaultValue; // 只有当不是数组时才返回默认�?
+                return defaultValue; // Only return default when not an array
             }
         );
     }
 };
 
-// 自动注册Qt类型的静态初始化�?
+// Static initialization for automatic Qt type registration
 namespace {
     struct QtTypesAutoRegistrar {
         QtTypesAutoRegistrar() {
