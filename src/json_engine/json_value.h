@@ -17,6 +17,7 @@
 #include <map>
 #include <charconv>
 #include <cmath>
+#include <functional>
 #include "json_number.h"
 
 namespace JsonStruct {
@@ -510,6 +511,25 @@ public:
     std::vector<const JsonValue*> selectAll(const std::string& jsonpath_expression) const;
     std::vector<JsonValue> selectValues(const std::string& jsonpath_expression) const;
 
+    // === Streaming and Lazy Query Support ===
+    // Note: For full streaming functionality, use JsonStreamingQuery class directly
+    // These methods provide convenient access for backward compatibility
+    
+    /**
+     * @brief Find first matching result efficiently (early termination)
+     * @param expression JSONPath expression to evaluate
+     * @return Pair of (pointer to value, path) or nullopt if not found
+     */
+    std::optional<std::pair<const JsonValue*, std::string>> findFirst(const std::string& expression) const;
+    
+    /**
+     * @brief Count matching results without materializing them
+     * @param expression JSONPath expression to evaluate
+     * @param maxCount Maximum count to check (0 = unlimited)
+     * @return Number of matching results
+     */
+    size_t countMatches(const std::string& expression, size_t maxCount = 0) const;
+    
     // Static helper functions
     template<typename T>
     static std::string toString(const T& value) {

@@ -15,6 +15,7 @@ include_directories(src/json_engine)
 # Core library sources
 set(CORE_SOURCES
     src/json_engine/json_value.cpp
+    src/json_engine/json_query_generator.cpp
     src/json_engine/json_path.cpp
     src/json_engine/json_filter.cpp
 )

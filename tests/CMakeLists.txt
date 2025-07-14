@@ -83,6 +83,10 @@ add_executable(test_jsonpath_filter_expression tests/test_jsonpath_filter_expres
 target_link_libraries(test_jsonpath_filter_expression jsonstruct_core)
 target_compile_features(test_jsonpath_filter_expression PRIVATE cxx_std_17)
 
+add_executable(test_streaming_query tests/test_streaming_query.cpp)
+target_link_libraries(test_streaming_query jsonstruct_core)
+target_compile_features(test_streaming_query PRIVATE cxx_std_17)
+
 # Create custom target for all tests
 add_custom_target(tests
     DEPENDS
@@ -107,4 +111,5 @@ add_custom_target(tests
         test_json_filter_comprehensive
         test_integration_jsonpath_filter
         test_jsonpath_filter_expression
+        test_streaming_query
 )

@@ -15,6 +15,10 @@ add_executable(example_json_filter_simple examples/example_json_filter_simple.cp
 target_link_libraries(example_json_filter_simple jsonstruct_core)
 target_compile_features(example_json_filter_simple PRIVATE cxx_std_17)
 
+add_executable(streaming_query_example examples/streaming_query_example.cpp)
+target_link_libraries(streaming_query_example jsonstruct_core)
+target_compile_features(streaming_query_example PRIVATE cxx_std_17)
+
 # Create custom target for all examples
 add_custom_target(examples
     DEPENDS
@@ -22,4 +26,5 @@ add_custom_target(examples
         example_jsonpath_complete
         example_json_filter
         example_json_filter_simple
+        streaming_query_example
 )

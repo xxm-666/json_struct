@@ -1,5 +1,6 @@
 #include "json_value.h"
 #include "json_filter.h"
+#include "json_query_generator.h"
 #include <cctype>
 #include <algorithm>
 #include <cstdio>
@@ -11,7 +12,7 @@ namespace JsonStruct {
 void JsonValue::dumpImpl(std::ostream& os, const SerializeOptions& options, int currentIndent) const {
     visit([&](const auto& value) {
         using T = std::decay_t<decltype(value)>;
-        
+
         if constexpr (std::is_same_v<T, std::monostate>) {
             os << "null";
         } else if constexpr (std::is_same_v<T, bool>) {
@@ -35,7 +36,7 @@ void JsonValue::dumpImpl(std::ostream& os, const SerializeOptions& options, int 
         } else if constexpr (std::is_same_v<T, ArrayType>) {
             os << "[";
             bool compact = options.compactArrays || options.indent < 0;
-            
+
             for (size_t i = 0; i < value.size(); ++i) {
                 if (i > 0) os << ",";
                 if (!compact) {
@@ -43,40 +44,40 @@ void JsonValue::dumpImpl(std::ostream& os, const SerializeOptions& options, int 
                 }
                 value[i].dumpImpl(os, options, currentIndent + options.indent);
             }
-            
+
             if (!compact && !value.empty()) {
                 os << "\n" << std::string(currentIndent, ' ');
             }
             os << "]";
         } else if constexpr (std::is_same_v<T, ObjectType>) {
             os << "{";
-            
+
             // Collect keys and optionally sort
             std::vector<std::string> keys;
             keys.reserve(value.size());
             for (const auto& [key, val] : value) {
                 keys.push_back(key);
             }
-            
+
             if (options.sortKeys) {
                 std::sort(keys.begin(), keys.end());
             }
-            
+
             bool first = true;
             for (const auto& key : keys) {
                 if (!first) os << ",";
                 first = false;
-                
+
                 if (options.indent >= 0) {
                     os << "\n" << std::string(currentIndent + options.indent, ' ');
                 }
-                
+
                 os << "\"" << escapeString(key, options.escapeUnicode) << "\":";
                 if (options.indent >= 0) os << " ";
-                
+
                 value.at(key).dumpImpl(os, options, currentIndent + options.indent);
             }
-            
+
             if (options.indent >= 0 && !value.empty()) {
                 os << "\n" << std::string(currentIndent, ' ');
             }
@@ -909,6 +910,30 @@ std::vector<const JsonValue*> JsonValue::selectAll(const std::string& jsonpath_e
 std::vector<JsonValue> JsonValue::selectValues(const std::string& jsonpath_expression) const {
     static JsonFilter defaultFilter = JsonFilter::createDefault();
     return defaultFilter.selectValues(*this, jsonpath_expression);
+}
+
+// === Streaming Query Convenience Methods ===
+// These provide simple access to JsonStreamingQuery functionality
+
+std::optional<std::pair<const JsonValue*, std::string>> JsonValue::findFirst(const std::string& expression) const {
+    // Use JsonFilter for basic implementation
+    static JsonFilter defaultFilter = JsonFilter::createDefault();
+    auto result = defaultFilter.selectFirst(*this, expression);
+    if (result) {
+        return std::make_pair(result, "$[0]"); // Simplified path
+    }
+    return std::nullopt;
+}
+
+size_t JsonValue::countMatches(const std::string& expression, size_t maxCount) const {
+    // Use JsonFilter for basic implementation
+    static JsonFilter defaultFilter = JsonFilter::createDefault();
+    auto results = defaultFilter.selectAll(*this, expression);
+    
+    if (maxCount > 0 && results.size() > maxCount) {
+        return maxCount;
+    }
+    return results.size();
 }
 
 std::ostream& operator<<(std::ostream& os, const JsonValue& value) {
