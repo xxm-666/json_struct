@@ -424,13 +424,16 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
     ctx.advance(ctx.peek()); // skip opening quote
     
     std::string result;
-    while (ctx.hasMore() && ctx.peek() != '"') {
-        if (ctx.peek() == '\\') {
-            ctx.advance(ctx.peek()); // skip backslash
+    while (ctx.hasMore()) {
+        char c = ctx.peek();
+        if (c == '"') {
+            break;
+        }
+        if (c == '\\') {
+            ctx.advance(c); // skip backslash
             if (!ctx.hasMore()) {
                 throw std::runtime_error("Unexpected end of string at " + ctx.locationInfo());
             }
-            
             char escape = ctx.peek();
             switch (escape) {
                 case '"': result += '"'; break;
@@ -443,7 +446,7 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
                 case 't': result += '\t'; break;
                 case 'u': {
                     // Unicode escape support
-                    size_t tempPos = ctx.position - 1; // Back to '\' position
+                    size_t tempPos = ctx.position - 1; // Back to '\\' position
                     try {
                         result += parseUnicodeEscape(ctx.source, tempPos);
                         ctx.position = tempPos;
@@ -454,8 +457,7 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
                 }
                 default:
                     if (ctx.options.strictMode) {
-                        throw std::runtime_error("Invalid escape sequence '\\" + 
-                                               std::string(1, escape) + "' at " + ctx.locationInfo());
+                        throw std::runtime_error("Invalid escape sequence '\\" + std::string(1, escape) + "' at " + ctx.locationInfo());
                     } else {
                         // Non-strict mode: keep unknown escape sequence
                         result += '\\';
@@ -465,14 +467,16 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
             }
             ctx.advance(ctx.peek());
         } else {
-            char c = ctx.peek();
-            
+            // support multi-line strings: allow actual newline characters in string content
+            if (c == '\n' || c == '\r') {
+                result += c;
+                ctx.advance(c);
+                continue;
+            }
             // Validate UTF-8 (if enabled)
             if (ctx.options.validateUtf8 && static_cast<unsigned char>(c) >= 0x80) {
                 // Simple UTF-8 validation
-                // A more complete UTF-8 validation could be implemented here
             }
-            
             result += c;
             ctx.advance(c);
         }

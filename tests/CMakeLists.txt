@@ -79,6 +79,10 @@ add_executable(test_integration_jsonpath_filter tests/test_integration_jsonpath_
 target_link_libraries(test_integration_jsonpath_filter jsonstruct_core)
 target_compile_features(test_integration_jsonpath_filter PRIVATE cxx_std_17)
 
+add_executable(test_jsonpath_filter_expression tests/test_jsonpath_filter_expression.cpp)
+target_link_libraries(test_jsonpath_filter_expression jsonstruct_core)
+target_compile_features(test_jsonpath_filter_expression PRIVATE cxx_std_17)
+
 # Create custom target for all tests
 add_custom_target(tests
     DEPENDS
@@ -102,4 +106,5 @@ add_custom_target(tests
         test_custom_types
         test_json_filter_comprehensive
         test_integration_jsonpath_filter
+        test_jsonpath_filter_expression
 )

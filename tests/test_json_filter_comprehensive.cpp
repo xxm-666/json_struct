@@ -157,6 +157,51 @@ void testChainQueries(const JsonValue& testData, JsonFilter& filter) {
         .values();
     assert(titleValues.size() == 4);
     std::cout << "✓ Value extraction: " << titleValues.size() << " titles" << std::endl;
+
+    // Test orderBy (sort by price ascending)
+    auto sortedBooks = filter.from(testData)
+        .where("$.store.book[*]")
+        .orderBy("price", true)
+        .execute();
+    assert(sortedBooks.size() == 4);
+    double prevPrice = 0.0;
+    for (size_t i = 0; i < sortedBooks.size(); ++i) {
+        auto priceVal = filter.selectFirst(*sortedBooks[i].value, "$.price");
+        if (!priceVal || !priceVal->isNumber()) continue; // 跳过无price字段
+        double price = priceVal->toDouble();
+        if (i > 0 && prevPrice > 0.0) assert(price >= prevPrice);
+        prevPrice = price;
+    }
+    std::cout << "✓ orderBy(price) ascending works" << std::endl;
+
+    // Test orderBy (sort by price descending)
+    auto sortedBooksDesc = filter.from(testData)
+        .where("$.store.book[*]")
+        .orderBy("price", false)
+        .execute();
+    assert(sortedBooksDesc.size() == 4);
+    prevPrice = 1e9;
+    for (size_t i = 0; i < sortedBooksDesc.size(); ++i) {
+        auto priceVal = filter.selectFirst(*sortedBooksDesc[i].value, "$.price");
+        if (!priceVal || !priceVal->isNumber()) continue;
+        double price = priceVal->toDouble();
+        if (i > 0 && prevPrice < 1e9) assert(price <= prevPrice);
+        prevPrice = price;
+    }
+    std::cout << "✓ orderBy(price) descending works" << std::endl;
+
+    // Test groupBy (group by category)
+    auto groupedBooks = filter.from(testData)
+        .where("$.store.book[*]")
+        .groupBy("category")
+        .executeGrouped();
+    std::cout << "GroupBy(category) results:" << std::endl;
+    for (const auto& kv : groupedBooks) {
+        std::cout << "  key='" << kv.first << "' count=" << kv.second.size() << std::endl;
+    }
+    assert(groupedBooks["fiction"].size() == 3);
+    assert(groupedBooks["reference"].size() == 1);
+    std::cout << "✓ groupBy(category) works: fiction=" << groupedBooks["fiction"].size() << ", reference=" << groupedBooks["reference"].size() << std::endl;
 }
 
 void testBatchOperations(const JsonValue& testData, JsonFilter& filter) {
@@ -242,6 +287,171 @@ void testBackwardCompatibility(const JsonValue& testData) {
     std::cout << "✓ JsonValue::selectValues still works: " << titleValues.size() << " title values" << std::endl;
 }
 
+void testStrictEdgeCases(const JsonValue& testData, JsonFilter& filter) {
+    std::cout << "\n=== Strict Edge Case Tests ===" << std::endl;
+
+    // 1. 非法路径测试
+    assert(!filter.pathExists(testData, "$.store.book[100]")); // 越界
+    assert(!filter.pathExists(testData, "$.store.book[*].nonexistent")); // 不存在字段
+
+    // 2. 类型校验
+    auto books = filter.from(testData).where("$.store.book[*]").execute();
+    for (const auto& result : books) {
+        assert(result.value->isObject());
+        auto priceVal = filter.selectFirst(*result.value, "$.price");
+        assert(priceVal != nullptr);
+        assert(priceVal->isNumber());
+    }
+
+    // 3. 排序健壮性（所有price都为double且有序）
+    auto sortedBooks = filter.from(testData).where("$.store.book[*]").orderBy("price", true).execute();
+    double prevPrice = -1e9;
+    for (const auto& result : sortedBooks) {
+        auto priceVal = filter.selectFirst(*result.value, "$.price");
+        assert(priceVal != nullptr);
+        double price = priceVal->toDouble();
+        assert(price >= prevPrice);
+        prevPrice = price;
+    }
+
+    // 4. 分组健壮性（所有分组键都存在且分组数量正确）
+    auto groupedBooks = filter.from(testData).where("$.store.book[*]").groupBy("category").executeGrouped();
+    size_t totalCount = 0;
+    for (const auto& kv : groupedBooks) {
+        assert(!kv.first.empty());
+        for (const auto& item : kv.second) {
+            auto catVal = filter.selectFirst(*item.value, "$.category");
+            assert(catVal != nullptr);
+            assert(catVal->toString() == kv.first);
+            totalCount++;
+        }
+    }
+    assert(totalCount == 4);
+
+    // 5. 异常处理（无效JSONPath抛异常或返回空）
+    try {
+        auto invalid = filter.query(testData, "$.store.book[0].price.nonexistent");
+        assert(invalid.empty());
+    } catch (...) {
+        std::cout << "Caught exception for invalid path as expected." << std::endl;
+    }
+
+    // 6. 空数组/空对象处理
+    JsonValue emptyArr = JsonValue::parse("[]");
+    assert(filter.selectAll(emptyArr, "$[*]").empty());
+    JsonValue emptyObj = JsonValue::parse("{}");
+    assert(filter.selectAll(emptyObj, "$.*").empty());
+
+    std::cout << "✓ Strict edge case tests passed" << std::endl;
+}
+
+void testSmallJsonSample(JsonFilter& filter) {
+    std::cout << "\n=== Small JSON Sample Test ===" << std::endl;
+    std::string smallJson = R"({"a":1,"b":2,"c":{"d":3}})";
+    JsonValue val = JsonValue::parse(smallJson);
+    assert(filter.pathExists(val, "$.a"));
+    assert(filter.pathExists(val, "$.c.d"));
+    auto result = filter.query(val, "$.c.d");
+    assert(result.size() == 1 && result[0].value->toDouble() == 3);
+    std::cout << "✓ Small JSON sample test passed" << std::endl;
+}
+
+void testLargeJsonSample(JsonFilter& filter) {
+    std::cout << "\n=== Large JSON Sample Test ===" << std::endl;
+    std::string largeJson = "{\"arr\":[";
+    for (int i = 0; i < 10000; ++i) {
+        largeJson += std::to_string(i);
+        if (i < 9999) largeJson += ",";
+    }
+    largeJson += "]}";
+    JsonValue val = JsonValue::parse(largeJson);
+    auto allItems = filter.selectAll(val, "$.arr[*]");
+    assert(allItems.size() == 10000);
+    // 检查部分数据
+    assert(allItems[0]->toDouble() == 0);
+    assert(allItems[9999]->toDouble() == 9999);
+    std::cout << "✓ Large JSON sample test passed" << std::endl;
+}
+
+void testStreamJsonSample(JsonFilter& filter) {
+    std::cout << "\n=== Stream JSON Sample Test ===" << std::endl;
+    // 模拟流式分块解析
+    std::vector<std::string> chunks = {
+        "{\"users\":[",
+        "{\"id\":1,\"name\":\"Alice\"},",
+        "{\"id\":2,\"name\":\"Bob\"},",
+        "{\"id\":3,\"name\":\"Carol\"}",
+        "]}"
+    };
+    std::string fullJson;
+    for (const auto& chunk : chunks) fullJson += chunk;
+    JsonValue val = JsonValue::parse(fullJson);
+    auto allUsers = filter.selectAll(val, "$.users[*]");
+    assert(allUsers.size() == 3);
+    for (const auto& user : allUsers) {
+        assert(user->isObject());
+        auto idVal = filter.selectFirst(*user, "$.id");
+        auto nameVal = filter.selectFirst(*user, "$.name");
+        assert(idVal && nameVal);
+    }
+    std::cout << "✓ Stream JSON sample test passed" << std::endl;
+}
+
+void testComplexMultilineString(JsonFilter& filter) {
+    std::cout << "\n=== Complex Multiline String Test ===" << std::endl;
+    std::string json = R"({
+        "single_line": "abc",
+        "escaped_newline": "line1\\nline2",
+        "actual_newline": "line1
+    line2
+line3",
+        "mixed": "first\\nsecond
+third\\tend",
+        "array": [
+            "item1
+item2",
+            "item3\\nitem4"
+        ],
+        "object": {
+            "desc": "start
+middle\\nend"
+        }
+    })";
+    JsonValue val = JsonValue::parse(json);
+
+    // 单行字符串
+    auto single = filter.selectFirst(val, "$.single_line");
+    assert(single && single->toString() == "abc");
+
+    // 转义换行
+    auto esc = filter.selectFirst(val, "$.escaped_newline");
+    assert(esc && esc->toString().find("\\n") != std::string::npos);
+
+    // 实际换行
+    auto act = filter.selectFirst(val, "$.actual_newline");
+    std::string actStr = act ? act->toString() : "";
+    assert(actStr.find("line1") != std::string::npos && actStr.find("line2") != std::string::npos && actStr.find("line3") != std::string::npos);
+    assert(actStr.find('\n') != std::string::npos);
+
+    // 混合内容
+    auto mix = filter.selectFirst(val, "$.mixed");
+    std::string mixStr = mix ? mix->toString() : "";
+    assert(mixStr.find("first") != std::string::npos && mixStr.find("second") != std::string::npos && mixStr.find("third") != std::string::npos);
+
+    // 数组中的多行字符串
+    auto arr = filter.selectAll(val, "$.array[*]");
+    assert(arr.size() == 2);
+    assert(arr[0]->toString().find("item1") != std::string::npos && arr[0]->toString().find("item2") != std::string::npos);
+    assert(arr[1]->toString().find("\\n") != std::string::npos);
+
+    // 对象中的多行字符串
+    auto obj = filter.selectFirst(val, "$.object.desc");
+    std::string objStr = obj ? obj->toString() : "";
+    assert(objStr.find("start") != std::string::npos && objStr.find("middle") != std::string::npos && objStr.find("end") != std::string::npos);
+
+    std::cout << "✓ Complex multiline string test passed" << std::endl;
+}
+
 int main() {
     // Create test JSON data
     JsonValue testData = JsonValue::parse(R"({
@@ -294,7 +504,12 @@ int main() {
         testBatchOperations(testData, filter);
         testConvenienceFunctions(testData);
         testBackwardCompatibility(testData);
-        
+        testStrictEdgeCases(testData, filter);
+        testSmallJsonSample(filter);
+        testLargeJsonSample(filter);
+        testStreamJsonSample(filter);
+        testComplexMultilineString(filter);
+
         std::cout << "\n🎉 All tests passed! JsonFilter is working 100% correctly!" << std::endl;
         std::cout << "\n=== Summary ===" << std::endl;
         std::cout << "✅ Basic path queries work correctly" << std::endl;

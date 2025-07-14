@@ -5,10 +5,11 @@
 #include <sstream>
 #include <cctype>
 #include <unordered_set>
+#include <stdexcept>
 
 namespace JsonStruct {
 
-// === QueryResult转换实现 ===
+// === QueryResult conversion implementation ===
 
 std::vector<JsonFilter::QueryResult> JsonFilter::QueryResult::fromJsonPathResult(const jsonpath::QueryResult& jpResult) {
     std::vector<JsonFilter::QueryResult> results;
@@ -21,8 +22,8 @@ std::vector<JsonFilter::QueryResult> JsonFilter::QueryResult::fromJsonPathResult
         result.depth = std::count(result.path.begin(), result.path.end(), '.') + 
                       std::count(result.path.begin(), result.path.end(), '[');
         
-        // 简单的路径分解（可以进一步优化）
-        // TODO: 可以使用json_path.h的Token信息进行更精确的分解
+        // Simple path decomposition (can be further optimized)
+        // TODO: Use Token info from json_path.h for more precise decomposition
         
         results.push_back(result);
     }
@@ -30,7 +31,7 @@ std::vector<JsonFilter::QueryResult> JsonFilter::QueryResult::fromJsonPathResult
     return results;
 }
 
-// === JsonFilter 实现 ===
+// === JsonFilter implementation ===
 
 JsonFilter::JsonFilter(const QueryOptions& options) : options_(options) {
 }
@@ -99,7 +100,7 @@ std::vector<JsonFilter::QueryResult> JsonFilter::queryWithFilter(const JsonValue
             result.value = &current;
             result.path = currentPath;
             result.depth = depth;
-            // TODO: 解析 pathTokens
+            // TODO: Parse pathTokens
             results.push_back(result);
         }
         
@@ -180,7 +181,7 @@ JsonFilter::QueryBuilder JsonFilter::from(const JsonValue& jsonValue) const {
     return QueryBuilder(*this, jsonValue);
 }
 
-// === 静态工厂方法 ===
+// === Static factory methods ===
 
 JsonFilter JsonFilter::createDefault() {
     QueryOptions options;
@@ -190,7 +191,7 @@ JsonFilter JsonFilter::createDefault() {
 JsonFilter JsonFilter::createHighPerformance() {
     QueryOptions options;
     options.enableCaching = true;
-    options.stopOnFirstMatch = false; // 可能需要根据具体使用场景调整
+    options.stopOnFirstMatch = false; // May need adjustment based on specific use case
     return JsonFilter(options);
 }
 
@@ -204,7 +205,7 @@ JsonFilter JsonFilter::createStrict() {
     return JsonFilter(options);
 }
 
-// === 预定义过滤器实现 ===
+// === Predefined filter implementations ===
 
 JsonFilter::FilterFunction JsonFilter::Filters::byType(int typeValue) {
     return [typeValue](const JsonValue& value, const std::string&) {
@@ -292,7 +293,7 @@ JsonFilter::FilterFunction JsonFilter::Filters::isNotEmpty() {
     };
 }
 
-// === QueryBuilder 实现 ===
+// === QueryBuilder implementation ===
 
 JsonFilter::QueryBuilder::QueryBuilder(const JsonFilter& filter, const JsonValue& jsonValue)
     : filter_(filter), jsonValue_(jsonValue) {
@@ -311,6 +312,11 @@ JsonFilter::QueryBuilder& JsonFilter::QueryBuilder::where(const FilterFunction& 
 JsonFilter::QueryBuilder& JsonFilter::QueryBuilder::orderBy(const std::string& expression, bool ascending) {
     orderExpression_ = expression;
     orderAscending_ = ascending;
+    return *this;
+}
+
+JsonFilter::QueryBuilder& JsonFilter::QueryBuilder::groupBy(const std::string& expression) {
+    groupByExpression_ = expression;
     return *this;
 }
 
@@ -337,23 +343,23 @@ JsonFilter::QueryBuilder& JsonFilter::QueryBuilder::shallow() {
 std::vector<JsonFilter::QueryResult> JsonFilter::QueryBuilder::execute() const {
     std::vector<QueryResult> results;
     
-    // 如果没有任何查询条件，返回空结果
+    // If there are no query conditions, return empty result
     if (expressions_.empty() && customFilters_.empty()) {
         return results;
     }
     
-    // 开始时，将根对象作为初始结果集
+    // Start with the root object as the initial result set
     QueryResult initialResult;
     initialResult.value = &jsonValue_;
     initialResult.path = "$";
     initialResult.depth = 0;
     results.push_back(initialResult);
     
-    // 依次应用每个表达式查询
+    // Apply each query expression in order
     for (const auto& expression : expressions_) {
         std::vector<QueryResult> newResults;
         
-        // 对当前结果集中的每个项目应用查询
+        // Apply query to each item in the current result set
         for (const auto& currentResult : results) {
             if (currentResult.value) {
                 auto queryResults = filter_.executeQuery(*currentResult.value, expression);
@@ -364,11 +370,11 @@ std::vector<JsonFilter::QueryResult> JsonFilter::QueryBuilder::execute() const {
         results = std::move(newResults);
     }
     
-    // 依次应用每个自定义过滤器
+    // Apply each custom filter in order
     for (const auto& customFilter : customFilters_) {
         std::vector<QueryResult> filteredResults;
         
-        // 对当前结果集应用过滤器
+        // Apply filter to the current result set
         for (const auto& result : results) {
             if (result.value && filter_.matchesFilter(*result.value, result.path, customFilter)) {
                 filteredResults.push_back(result);
@@ -378,35 +384,112 @@ std::vector<JsonFilter::QueryResult> JsonFilter::QueryBuilder::execute() const {
         results = std::move(filteredResults);
     }
     
-    // 去重（基于值指针）
+    // Remove duplicates (based on value pointer)
     std::unordered_set<const JsonValue*> seen;
     auto it = std::remove_if(results.begin(), results.end(), 
         [&seen](const QueryResult& result) {
             if (seen.count(result.value)) {
-                return true; // 已存在，删除
+                return true; // Already exists, remove
             }
             seen.insert(result.value);
-            return false; // 不存在，保留
+            return false; // Does not exist, keep
         });
     results.erase(it, results.end());
     
-    // 排序（如果指定了排序表达式）
+    // Sort (if a sort expression is specified)
     if (!orderExpression_.empty()) {
-        // TODO: 实现基于表达式的排序
-        // 这里需要根据 orderExpression_ 来排序结果
+        std::sort(results.begin(), results.end(), [&](const QueryResult& a, const QueryResult& b) {
+            const JsonValue* va = nullptr;
+            const JsonValue* vb = nullptr;
+            // Directly access object properties
+            if (a.value && a.value->isObject()) {
+                const auto* obj = a.value->getObject();
+                auto it = obj->find(orderExpression_);
+                if (it != obj->end()) va = &it->second;
+            }
+            if (b.value && b.value->isObject()) {
+                const auto* obj = b.value->getObject();
+                auto it = obj->find(orderExpression_);
+                if (it != obj->end()) vb = &it->second;
+            }
+            // Support sorting by number and string
+            if (va && vb) {
+                if (va->isNumber() && vb->isNumber()) {
+                    auto na = va->getNumber();
+                    auto nb = vb->getNumber();
+                    if (na && nb) return orderAscending_ ? (*na < *nb) : (*na > *nb);
+                } else if (va->isString() && vb->isString()) {
+                    auto sa = va->getString();
+                    auto sb = vb->getString();
+                    if (sa && sb) return orderAscending_ ? (*sa < *sb) : (*sa > *sb);
+                }
+            }
+    // Objects without the sort field are placed at the end
+            if (!va && vb) return false;
+            if (va && !vb) return true;
+            return false;
+        });
     }
     
-    // 跳过指定数量的结果
+    // Skip the specified number of results
     if (skipCount_ > 0 && skipCount_ < results.size()) {
         results.erase(results.begin(), results.begin() + skipCount_);
     }
     
-    // 限制结果数量
+    // Limit the number of results
     if (limitCount_ > 0 && results.size() > limitCount_) {
         results.resize(limitCount_);
     }
     
     return results;
+}
+
+std::map<std::string, std::vector<JsonFilter::QueryResult>> JsonFilter::QueryBuilder::executeGrouped() const {
+    std::vector<QueryResult> results = execute();
+    std::map<std::string, std::vector<QueryResult>> grouped;
+    if (groupByExpression_.empty()) {
+        grouped["__all__"] = std::move(results);
+        return grouped;
+    }
+    for (const auto& result : results) {
+        std::string key = "__none__";
+        if (result.value && result.value->isObject()) {
+            // Prefer to get the group key directly from the object property
+            const auto* obj = result.value->getObject();
+            auto it = obj->find(groupByExpression_);
+            if (it != obj->end()) {
+                if (it->second.isString()) {
+                    auto s = it->second.getString();
+                    key = (s && !s->empty()) ? std::string(*s) : "__none__";
+                } else if (it->second.isNumber()) {
+                    auto n = it->second.getNumber();
+                    key = n ? std::to_string(*n) : "__none__";
+                }
+            } else {
+                // fallback: Try to use selectFirst
+                auto sub = filter_.selectFirst(*result.value, groupByExpression_);
+                if (sub && sub->isString()) {
+                    auto s = sub->getString();
+                    key = (s && !s->empty()) ? std::string(*s) : "__none__";
+                } else if (sub && sub->isNumber()) {
+                    auto n = sub->getNumber();
+                    key = n ? std::to_string(*n) : "__none__";
+                }
+            }
+        } else if (result.value) {
+            // fallback: Try to use selectFirst
+            auto sub = filter_.selectFirst(*result.value, groupByExpression_);
+            if (sub && sub->isString()) {
+                auto s = sub->getString();
+                key = (s && !s->empty()) ? std::string(*s) : "__none__";
+            } else if (sub && sub->isNumber()) {
+                auto n = sub->getNumber();
+                key = n ? std::to_string(*n) : "__none__";
+            }
+        }
+        grouped[key].push_back(result);
+    }
+    return grouped;
 }
 
 std::optional<JsonFilter::QueryResult> JsonFilter::QueryBuilder::first() const {
@@ -444,14 +527,19 @@ bool JsonFilter::QueryBuilder::all(const FilterFunction& predicate) const {
         });
 }
 
-// === 内部实现方法 ===
+// === Internal implementation methods ===
 
 std::vector<JsonFilter::QueryResult> JsonFilter::executeQuery(
     const JsonValue& jsonValue, 
     const std::string& expression,
     FilterStrategy strategy) const {
     
-    // 检查缓存
+    // JSONPath filter expression support toggle
+    if (!options_.filterExpressionsEnabled && expression.find("[?(") != std::string::npos) {
+        throw std::runtime_error("Filter expressions are disabled in current configuration");
+    }
+    
+    // Check cache
     if (options_.enableCaching) {
         std::string cacheKey = buildCacheKey(expression, strategy);
         std::vector<QueryResult> cachedResult;
@@ -464,16 +552,16 @@ std::vector<JsonFilter::QueryResult> JsonFilter::executeQuery(
     
     switch (strategy) {
         case FilterStrategy::JSONPath: {
-            // 使用统一的JSONPath引擎
+            // Use unified JSONPath engine
             results = executeJsonPathUnified(jsonValue, expression);
             break;
         }
         default:
-            // 其他策略的实现保持不变
+            // Other strategies unchanged
             break;
     }
     
-    // 缓存结果
+    // Cache result
     if (options_.enableCaching && !results.empty()) {
         std::string cacheKey = buildCacheKey(expression, strategy);
         setCachedResult(cacheKey, results);
@@ -503,7 +591,7 @@ std::vector<JsonFilter::QueryResult> JsonFilter::executeJsonPathUnified(
     }
 }
 
-// === 缓存管理实现 ===
+// === Cache management implementation ===
 
 std::string JsonFilter::buildCacheKey(const std::string& expression, FilterStrategy strategy) const {
     return std::to_string(static_cast<int>(strategy)) + ":" + expression;
@@ -522,7 +610,7 @@ void JsonFilter::setCachedResult(const std::string& cacheKey, const std::vector<
     queryCache_[cacheKey] = result;
 }
 
-// === 工具方法实现 ===
+// === Utility method implementations ===
 
 bool JsonFilter::matchesFilter(const JsonValue& value, const std::string& path, const FilterFunction& filter) const {
     return filter(value, path);
