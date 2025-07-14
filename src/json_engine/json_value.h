@@ -21,6 +21,9 @@
 
 namespace JsonStruct {
 
+// Forward declarations
+class JsonFilter;
+
 class JsonValue {
 public:
     enum class Type {
@@ -499,12 +502,11 @@ public:
     JsonValue& at(std::string_view jsonPointer);
     const JsonValue& at(std::string_view jsonPointer) const;
 
-    // JSONPath query support (basic query language) - simplified implementation
-    // Note: Full JSONPath implementation requires a complex parser, only basic features provided here
+    // JSON Query support - delegated to JsonFilter for better separation of concerns
+    // Note: For advanced filtering and querying, use JsonFilter class directly
+    // These methods are provided for backward compatibility and convenience
     bool pathExists(const std::string& jsonpath_expression) const;
     const JsonValue* selectFirst(const std::string& jsonpath_expression) const;
-    
-    // Enhanced JSONPath support - multi-value queries
     std::vector<const JsonValue*> selectAll(const std::string& jsonpath_expression) const;
     std::vector<JsonValue> selectValues(const std::string& jsonpath_expression) const;
 
@@ -560,12 +562,6 @@ private:
     // JSON Pointer implementation
     static std::vector<std::string> parseJsonPointer(std::string_view pointer);
     static std::string unescapeJsonPointer(std::string_view token);
-    
-    // Enhanced JSONPath private helpers
-    std::vector<const JsonValue*> selectAllWithWildcard(const std::string& jsonpath_expression) const;
-    std::vector<const JsonValue*> selectAllWithRecursiveDescent(const std::string& jsonpath_expression) const;
-    std::vector<const JsonValue*> selectAllWithSlicing(const std::string& jsonpath_expression) const;
-    void recursiveSearch(const std::string& targetProp, std::vector<const JsonValue*>& results) const;
 };
 
 // Factory and convenience functions

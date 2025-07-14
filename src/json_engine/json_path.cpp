@@ -160,6 +160,16 @@ void JsonPath::parseExpression(const std::vector<Token>& tokens) {
     while (pos < tokens.size() && tokens[pos].type != TokenType::END) {
         nodes_.push_back(parseNode(tokens, pos));
     }
+    
+    // 验证递归下降操作符后面必须有内容
+    for (size_t i = 0; i < nodes_.size(); ++i) {
+        if (nodes_[i].type == NodeType::RECURSIVE) {
+            // 递归下降操作符后面必须有另一个节点
+            if (i == nodes_.size() - 1) {
+                throw JsonPathException("Recursive descent operator '..' must be followed by a property or expression");
+            }
+        }
+    }
 }
 
 PathNode JsonPath::parseNode(const std::vector<Token>& tokens, size_t& pos) {
