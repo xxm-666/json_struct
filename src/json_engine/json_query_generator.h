@@ -25,6 +25,12 @@ public:
         bool stopOnFirstMatch = false;      // Stop after first match
         size_t batchSize = 100;             // Batch size for streaming
         bool enableEarlyTermination = true; // Allow early termination via callback
+
+        GeneratorOptions()
+        : maxResults(0),
+          stopOnFirstMatch(false),
+          batchSize(100),
+          enableEarlyTermination(true) {}
     };
 
     // Result yielder - allows custom processing during generation

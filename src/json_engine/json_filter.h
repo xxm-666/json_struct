@@ -49,6 +49,17 @@ public:
         bool recursiveDescentEnabled = true; // Enable recursive descent (..)
         bool slicingEnabled = true;          // Enable array slicing ([start:end:step])
         bool filterExpressionsEnabled = true; // Enable filter expressions ([?(@.price < 10)])
+
+        QueryOptions()
+        : caseSensitive(true),
+          allowWildcard(true),
+          enableCaching(false),
+          maxResults(0),
+          stopOnFirstMatch(false),
+          includeArrayIndices(true),
+          recursiveDescentEnabled(true),
+          slicingEnabled(true),
+          filterExpressionsEnabled(true) {}
     };
 
     // Query result

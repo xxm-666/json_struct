@@ -575,18 +575,18 @@ std::vector<JsonFilter::QueryResult> JsonFilter::executeJsonPathUnified(
     const std::string& expression) const {
     
     try {
-        // 使用json_path.h的JsonPath类
+        // Use JsonPath class from json_path.h
         jsonpath::JsonPath jsonPath(expression);
         auto jpResult = jsonPath.evaluate(jsonValue);
         
-        // 转换为JsonFilter::QueryResult格式
+        // Convert to JsonFilter::QueryResult format
         return QueryResult::fromJsonPathResult(jpResult);
         
     } catch (const jsonpath::JsonPathException& e) {
-        // JSONPath解析错误，返回空结果
+        // JSONPath parse error, return empty result
         return std::vector<QueryResult>();
     } catch (const std::exception& e) {
-        // 其他错误，返回空结果
+        // Other errors, return empty result
         return std::vector<QueryResult>();
     }
 }

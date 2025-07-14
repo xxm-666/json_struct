@@ -58,6 +58,12 @@ public:
         bool validateUtf8 = true;       // Validate UTF-8 encoding
         bool allowSpecialNumbers = false; // Allow NaN/Infinity and other special numbers
         bool allowRecovery = false;     // Allow error recovery (lenient parsing)
+
+        ParseOptions()
+        : maxDepth(512), allowComments(false),
+          allowTrailingCommas(false), strictMode(true),
+          validateUtf8(true), allowSpecialNumbers(false),
+          allowRecovery(false) {}
     };
 
     // Serialization options
@@ -67,7 +73,12 @@ public:
         bool escapeUnicode = false;     // Escape Unicode characters
         bool compactArrays = false;     // Compact array formatting
         size_t maxPrecision = 15;       // Floating point precision
-        bool allowSpecialNumbers = false; // Serialize special numbers        
+        bool allowSpecialNumbers = false; // Serialize special numbers
+
+        SerializeOptions()
+        : indent(-1), sortKeys(false),
+          escapeUnicode(false), compactArrays(false),
+          maxPrecision(15), allowSpecialNumbers(false) {}
     };
 
 private:
