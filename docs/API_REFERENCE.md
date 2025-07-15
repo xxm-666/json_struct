@@ -311,3 +311,46 @@ public:
     std::string getErrorMessage() const;
 };
 ```
+
+## JsonFilter 类
+
+### 方法
+
+```cpp
+// 添加过滤条件
+void addCondition(const std::string& path, std::function<bool(const JsonValue&)> condition);
+
+// 应用过滤器
+JsonValue apply(const JsonValue& input) const;
+```
+
+### 示例
+
+```cpp
+JsonFilter filter;
+filter.addCondition("$.items[*].id", [](const JsonValue& value) {
+    return value.toInt() > 1;
+});
+JsonValue filtered = filter.apply(data);
+```
+
+## JsonQueryGenerator 类
+
+### 方法
+
+```cpp
+// 添加查询路径
+void addPath(const std::string& path);
+
+// 生成查询
+std::vector<std::string> generate() const;
+```
+
+### 示例
+
+```cpp
+JsonQueryGenerator generator;
+generator.addPath("$.store.book[*].title");
+generator.addPath("$.store.bicycle.price");
+std::vector<std::string> queries = generator.generate();
+```

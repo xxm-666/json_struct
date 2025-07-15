@@ -565,3 +565,50 @@ private:
     std::unordered_map<std::string, JsonValue> cache_;
 };
 ```
+
+## JSON过滤器模块
+
+### 1. 基本过滤器使用
+
+```cpp
+#include "json_engine/json_filter.h"
+using namespace JsonStruct;
+
+JsonValue data = JsonValue::parse(R"({"items": [{"id": 1}, {"id": 2}, {"id": 3}]})");
+JsonFilter filter;
+filter.addCondition("$.items[*].id", [](const JsonValue& value) {
+    return value.toInt() > 1;
+});
+
+JsonValue filtered = filter.apply(data);
+std::cout << filtered.serialize(2) << std::endl;
+```
+
+### 2. 高级过滤器功能
+
+```cpp
+filter.addCondition("$.items[*].id", [](const JsonValue& value) {
+    return value.toInt() % 2 == 0; // 筛选偶数ID
+});
+
+JsonValue filteredEven = filter.apply(data);
+std::cout << filteredEven.serialize(2) << std::endl;
+```
+
+## JSON查询生成器模块
+
+### 1. 动态查询生成
+
+```cpp
+#include "json_engine/json_query_generator.h"
+using namespace JsonStruct;
+
+JsonQueryGenerator generator;
+generator.addPath("$.store.book[*].title");
+generator.addPath("$.store.bicycle.price");
+
+std::vector<std::string> queries = generator.generate();
+for (const auto& query : queries) {
+    std::cout << query << std::endl;
+}
+```

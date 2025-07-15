@@ -49,15 +49,35 @@ std::cout << "Skills count: " << parsed["skills"].toArray().size() << std::endl;
 ### 3. 处理数组
 
 ```cpp
-JsonValue array;
-array.append(JsonValue("item1"));
-array.append(JsonValue("item2"));
-array.append(JsonValue("item3"));
-
-// 遍历数组
-for (size_t i = 0; i < array.size(); ++i) {
-    std::cout << array[i].toString() << std::endl;
+JsonValue array = JsonValue::parse(R"(["C++", "Python", "JSON"])");
+for (const auto& item : array.toArray()) {
+    std::cout << item.toString() << std::endl;
 }
+```
+
+### 4. 嵌套对象解析
+
+```cpp
+JsonValue nested = JsonValue::parse(R"({"person": {"name": "Alice", "age": 30}})");
+std::cout << "Name: " << nested["person"]["name"].toString() << std::endl;
+std::cout << "Age: " << nested["person"]["age"].toInt() << std::endl;
+```
+
+### 5. 使用类型注册模块
+
+```cpp
+#include "type_registry/auto_serializer.h"
+using namespace JsonStruct;
+
+struct Person {
+    std::string name;
+    int age;
+    JS_OBJ(name, age);
+};
+
+Person alice = {"Alice", 30};
+JsonValue json = AutoSerializer::serialize(alice);
+std::cout << json.serialize(2) << std::endl;
 ```
 
 ## 高级功能

@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.16)
-project(JsonStructRegistry LANGUAGES CXX)
+project(json_struct LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,8 +36,8 @@ set(CORE_HEADERS
     src/json_engine/json_filter.h
 )
 
-add_library(jsonstruct_core STATIC ${CORE_SOURCES} ${CORE_HEADERS})
-target_compile_features(jsonstruct_core PRIVATE cxx_std_17)
+add_library(json_struct STATIC ${CORE_SOURCES} ${CORE_HEADERS})
+target_compile_features(json_struct PRIVATE cxx_std_17)
 
 # 选项控制是否编译测试和示例
 option(BUILD_TESTS "Build test targets" OFF)
@@ -52,7 +52,7 @@ if(BUILD_EXAMPLES)
 endif()
 
 # 安装部分保持原样
-install(TARGETS jsonstruct_core
+install(TARGETS json_struct
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
@@ -87,42 +87,37 @@ install(FILES src/json_engine/json_value.h
     DESTINATION include/jsonstruct/json_engine
 )
 
-# 添加安装规则
-install(TARGETS jsonstruct_core
-        EXPORT JsonStructRegistryTargets
+# 修复导出集名称问题
+install(TARGETS json_struct
+        EXPORT json_structTargets
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
 
-install(DIRECTORY src/
-        DESTINATION include/jsonstruct
-        FILES_MATCHING PATTERN "*.h")
-
-# 导出目标
-export(EXPORT JsonStructRegistryTargets
-       FILE JsonStructRegistryTargets.cmake
-       NAMESPACE JsonStructRegistry::)
+export(EXPORT json_structTargets
+       FILE json_structTargets.cmake
+       NAMESPACE json_struct::)
 
 # 生成配置文件
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/JsonStructRegistryConfigVersion.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/json_structConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY AnyNewerVersion
 )
 
-configure_file(JsonStructRegistryConfig.cmake.in
-               "${CMAKE_CURRENT_BINARY_DIR}/JsonStructRegistryConfig.cmake"
+configure_file(json_structConfig.cmake.in
+               "${CMAKE_CURRENT_BINARY_DIR}/json_structConfig.cmake"
                @ONLY)
 
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/JsonStructRegistryConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/JsonStructRegistryConfigVersion.cmake"
-    DESTINATION lib/cmake/JsonStructRegistry
+    "${CMAKE_CURRENT_BINARY_DIR}/json_structConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/json_structConfigVersion.cmake"
+    DESTINATION lib/cmake/json_struct
 )
 
 # 安装导出文件
-install(EXPORT JsonStructRegistryTargets
-        FILE JsonStructRegistryTargets.cmake
-        NAMESPACE JsonStructRegistry::
-        DESTINATION lib/cmake/JsonStructRegistry)
+install(EXPORT json_structTargets
+        FILE json_structTargets.cmake
+        NAMESPACE json_struct::
+        DESTINATION lib/cmake/json_struct)

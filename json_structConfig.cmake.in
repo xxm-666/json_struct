@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+set(json_struct_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../include/jsonstruct")
+
+include("${CMAKE_CURRENT_LIST_DIR}/json_structTargets.cmake")
