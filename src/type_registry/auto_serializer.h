@@ -2,6 +2,7 @@
 #include "../json_engine/json_value.h"
 #include "registry_core.h"
 #include "field_macros.h"
+#include "../std_types/generic_container_support.h"
 #include <type_traits>
 #include <tuple>
 #include <sstream>
@@ -57,9 +58,23 @@ JsonStruct::JsonValue toJsonValue(const T& value) {
     else if constexpr (has_json_fields_v<T>) {
         return JsonStruct::JsonValue(toJson(value));
     }
+    // 通用容器支持 - 支持任意嵌套的容器类型
+    else if constexpr (JsonStruct::is_container_v<T>) {
+        return JsonStruct::containerToJson(value);
+    }
+    // pair支持
+    else if constexpr (JsonStruct::is_pair<T>::value) {
+        return JsonStruct::pairToJson(value);
+    }
     else {
         return JsonStruct::JsonValue();
     }
+}
+
+// 为了支持递归调用，需要定义genericToJsonValue
+template<typename T>
+JsonStruct::JsonValue JsonStruct::genericToJsonValue(const T& value) {
+    return ::toJsonValue(value);
 }
 
 // Helper to get tuple size using SFINAE
@@ -111,6 +126,31 @@ void fromJson(T& obj, const JsonStruct::JsonValue& json) {
     }
 }
 
+// Basic type overloads - use overloads instead of specializations  
+inline bool fromJsonValue(const JsonStruct::JsonValue& value, const bool& defaultValue) {
+    return value.toBool(defaultValue);
+}
+
+inline int fromJsonValue(const JsonStruct::JsonValue& value, const int& defaultValue) {
+    return value.toInt(defaultValue);
+}
+
+inline long long fromJsonValue(const JsonStruct::JsonValue& value, const long long& defaultValue) {
+    return value.toLongLong(defaultValue);
+}
+
+inline float fromJsonValue(const JsonStruct::JsonValue& value, const float& defaultValue) {
+    return static_cast<float>(value.toDouble(defaultValue));
+}
+
+inline double fromJsonValue(const JsonStruct::JsonValue& value, const double& defaultValue) {
+    return value.toDouble(defaultValue);
+}
+
+inline std::string fromJsonValue(const JsonStruct::JsonValue& value, const std::string& defaultValue) {
+    return value.toString(defaultValue);
+}
+
 template<typename T>
 typename std::enable_if<!is_json_primitive_v<T>, T>::type
 fromJsonValue(const JsonStruct::JsonValue& value, const T& defaultValue) {
@@ -133,34 +173,17 @@ fromJsonValue(const JsonStruct::JsonValue& value, const T& defaultValue) {
         }
         return obj;
     }
+    // 通用容器支持 - 支持任意嵌套的容器类型
+    else if constexpr (JsonStruct::is_container_v<T>) {
+        return JsonStruct::containerFromJson(value, defaultValue);
+    }
+    // pair支持
+    else if constexpr (JsonStruct::is_pair<T>::value) {
+        return JsonStruct::pairFromJson(value, defaultValue);
+    }
     else {
         return defaultValue;
     }
-}
-
-// Basic type overloads - use overloads instead of specializations
-inline bool fromJsonValue(const JsonStruct::JsonValue& value, const bool& defaultValue) {
-    return value.toBool(defaultValue);
-}
-
-inline int fromJsonValue(const JsonStruct::JsonValue& value, const int& defaultValue) {
-    return value.toInt(defaultValue);
-}
-
-inline long long fromJsonValue(const JsonStruct::JsonValue& value, const long long& defaultValue) {
-    return value.toLongLong(defaultValue);
-}
-
-inline double fromJsonValue(const JsonStruct::JsonValue& value, const double& defaultValue) {
-    return value.toDouble(defaultValue);
-}
-
-inline float fromJsonValue(const JsonStruct::JsonValue& value, const float& defaultValue) {
-    return static_cast<float>(value.toDouble(defaultValue));
-}
-
-inline std::string fromJsonValue(const JsonStruct::JsonValue& value, const std::string& defaultValue) {
-    return value.toString(defaultValue);
 }
 
 // Additional overloads for specific integer types to avoid ambiguity
@@ -198,6 +221,12 @@ inline unsigned long fromJsonValue(const JsonStruct::JsonValue& value, const uns
 
 inline unsigned long long fromJsonValue(const JsonStruct::JsonValue& value, const unsigned long long& defaultValue) {
     return static_cast<unsigned long long>(value.toLongLong(defaultValue));
+}
+
+// 为了支持递归调用，需要定义genericFromJsonValue
+template<typename T>
+T JsonStruct::genericFromJsonValue(const JsonStruct::JsonValue& json, const T& defaultValue) {
+    return ::fromJsonValue(json, defaultValue);
 }
 
 // Helper functions for field operations

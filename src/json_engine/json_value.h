@@ -316,10 +316,15 @@ public:
     }
 
     std::string toString(const std::string& defaultValue = "") const {
-        if (auto str = getString()) {
-            return std::string(*str);
+        auto str_opt = getString();
+        if (str_opt.has_value()) {
+            return std::string(str_opt.value());
         }
         return defaultValue;
+    }
+    
+    std::string toString(const char* defaultValue) const {
+        return toString(std::string(defaultValue));
     }
 
     const ArrayType& toArray() const {

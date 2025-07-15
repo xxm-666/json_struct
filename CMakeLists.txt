@@ -27,7 +27,7 @@ set(CORE_HEADERS
     src/type_registry/auto_serializer.h
     src/type_registry/field_macros.h
     src/std_types/std_registry.h
-    src/std_types/container_registry.h
+    src/std_types/generic_container_support.h
     src/qt_types/qt_registry.h
     src/json_engine/json_value.h
     src/json_engine/json_number.h
@@ -44,11 +44,18 @@ target_include_directories(json_struct INTERFACE
 )
 
 # 可选的Qt支持
-option(ENABLE_QT_SUPPORT "Enable Qt support" OFF)
+option(ENABLE_QT_SUPPORT "Enable Qt support" ON)
 
 if(ENABLE_QT_SUPPORT)
-    find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
-    target_link_libraries(json_struct PRIVATE Qt6::Core Qt6::Widgets)
+    find_package(Qt6 COMPONENTS Core Widgets)
+    if(Qt6_FOUND)
+        add_definitions(-DQT_CORE_LIB)
+        target_link_libraries(json_struct PUBLIC Qt6::Core Qt6::Widgets)
+        target_include_directories(json_struct PUBLIC ${Qt6Core_INCLUDE_DIRS})
+        message(STATUS "Qt6 found - Qt support enabled")
+    else()
+        message(WARNING "Qt6 not found - Qt support disabled")
+    endif()
 endif()
 
 target_compile_features(json_struct PRIVATE cxx_std_17)
@@ -59,6 +66,21 @@ option(BUILD_EXAMPLES "Build example targets" OFF)
 
 if(BUILD_TESTS)
     include(tests/CMakeLists.txt)
+    
+    # 添加统一类型系统测试
+    add_executable(test_unified_system test_unified_system.cpp)
+    target_link_libraries(test_unified_system json_struct)
+    target_include_directories(test_unified_system PRIVATE src)
+    
+    # 添加注册必要性测试
+    add_executable(test_registration_necessity test_registration_necessity.cpp)
+    target_link_libraries(test_registration_necessity json_struct)
+    target_include_directories(test_registration_necessity PRIVATE src)
+    
+    # 添加Qt编译测试
+    add_executable(test_qt_compilation test_qt_compilation.cpp)
+    target_link_libraries(test_qt_compilation json_struct)
+    target_include_directories(test_qt_compilation PRIVATE src)
 endif()
 
 if(BUILD_EXAMPLES)
@@ -86,10 +108,11 @@ install(FILES src/type_registry/registry_core.h
 )
 
 install(FILES src/std_types/std_registry.h
-             src/std_types/container_registry.h
+             src/std_types/generic_container_support.h
     DESTINATION include/jsonstruct/std_types
 )
 
+# Qt类型支持头文件
 install(FILES src/qt_types/qt_registry.h
     DESTINATION include/jsonstruct/qt_types
 )
