@@ -13,7 +13,9 @@ int main() {
                     "d": 42,
                     "arr": [1, 2, 3],
                     "empty": {},
-                    "nullval": null
+                    "nullval": null,
+                    "/special~key": "escaped",
+                    "special key": "value"
                 }
             }
         },
@@ -89,7 +91,7 @@ int main() {
         json.at("/a/b/c/arr/10");
         std::cerr << "JSON Pointer /a/b/c/arr/10 should have thrown!" << std::endl;
         return 1;
-    } catch (const std::exception&) {
+    } catch (const std::runtime_error&) {
         std::cout << "JSON Pointer /a/b/c/arr/10 out-of-bounds test passed!" << std::endl;
     }
 
@@ -109,6 +111,38 @@ int main() {
         return 1;
     } catch (const std::exception&) {
         std::cout << "JSON Pointer /a/b/c/d/0 type error test passed!" << std::endl;
+    }
+
+    // 10. Escape sequences (~0 and ~1)
+    try {
+        const JsonValue& val = json.at("/a/b/c/~1special~0key");
+        assert(val.isString());
+        assert(val.getString().value_or("") == "escaped");
+        std::cout << "JSON Pointer /a/b/c/~1special~0key escape sequence test passed!" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "JSON Pointer /a/b/c/~1special~0key test failed: " << e.what() << std::endl;
+        return 1;
+    }
+
+    // 11. Empty JSON Pointer
+    try {
+        const JsonValue& val = json.at("");
+        assert(val.isObject());
+        std::cout << "JSON Pointer '' (empty) test passed!" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "JSON Pointer '' (empty) test failed: " << e.what() << std::endl;
+        return 1;
+    }
+
+    // 12. Special characters in keys
+    try {
+        const JsonValue& val = json.at("/a/b/c/special key");
+        assert(val.isString());
+        assert(val.getString().value_or("") == "value");
+        std::cout << "JSON Pointer /a/b/c/special key test passed!" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "JSON Pointer /a/b/c/special key test failed: " << e.what() << std::endl;
+        return 1;
     }
 
     std::cout << "All JSON Pointer edge tests passed!" << std::endl;

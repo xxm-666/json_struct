@@ -836,17 +836,19 @@ std::string JsonValue::unescapeJsonPointer(std::string_view token) {
     for (size_t i = 0; i < token.length(); ++i) {
         if (token[i] == '~') {
             if (i + 1 < token.length()) {
-                if (token[i + 1] == '1') {
-                    result += '/';
-                    ++i;
-                } else if (token[i + 1] == '0') {
-                    result += '~';
-                    ++i;
-                } else {
-                    throw std::runtime_error("Invalid JSON pointer escape");
+                switch (token[i + 1]) {
+                    case '1':
+                        result += '/';
+                        break;
+                    case '0':
+                        result += '~';
+                        break;
+                    default:
+                        throw std::runtime_error("Invalid JSON pointer escape sequence: ~" + std::string(1, token[i + 1]));
                 }
+                ++i; // Skip the next character as it is part of the escape sequence
             } else {
-                throw std::runtime_error("Invalid JSON pointer escape");
+                throw std::runtime_error("Incomplete escape sequence at end of token");
             }
         } else {
             result += token[i];
@@ -861,16 +863,25 @@ JsonValue& JsonValue::at(std::string_view jsonPointer) {
     
     for (const auto& token : tokens) {
         if (current->isArray()) {
-            // Array index
             try {
+                // Array index
                 size_t index = std::stoull(token);
+                if (index >= current->size()) {
+                    throw std::runtime_error("Array index out of bounds: " + token);
+                }
                 current = &((*current)[index]);
-            } catch (const std::exception&) {
+            } catch (const std::exception& e) {
                 throw std::runtime_error("Invalid array index: " + token);
             }
         } else if (current->isObject()) {
+            auto jsonStr = current->toJson(0);
             // Object key
-            current = &((*current)[token]);
+            std::string adjustedToken = token;
+            if (!current->contains(adjustedToken)) {
+                throw std::runtime_error("Property not found: " + adjustedToken);
+            }
+
+            current = &((*current)[adjustedToken]);
         } else {
             throw std::runtime_error("Cannot index into non-container type");
         }
