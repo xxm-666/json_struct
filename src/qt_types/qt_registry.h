@@ -211,4 +211,27 @@ inline QJsonValue toQJsonValue(const JsonStruct::JsonValue& value) {
     return QJsonValue();
 }
 
+inline JsonStruct::JsonValue fromQJsonValue(const QJsonValue& value) {
+    if (value.isBool()) {
+        return JsonStruct::JsonValue(value.toBool());
+    } else if (value.isDouble()) {
+        return JsonStruct::JsonValue(value.toDouble());
+    } else if (value.isString()) {
+        return JsonStruct::JsonValue(value.toString().toStdString());
+    } else if (value.isArray()) {
+        JsonStruct::JsonValue::ArrayType arr;
+        for (const auto& item : value.toArray()) {
+            arr.push_back(fromQJsonValue(item));
+        }
+        return JsonStruct::JsonValue(arr);
+    } else if (value.isObject()) {
+        JsonStruct::JsonValue::ObjectType obj;
+        for (const auto& key : value.toObject().keys()) {
+            obj[key.toStdString()] = fromQJsonValue(value.toObject().value(key));
+        }
+        return JsonStruct::JsonValue(obj);
+    }
+    return JsonStruct::JsonValue(); // Return null value
+}
+
 } // namespace JsonStruct
