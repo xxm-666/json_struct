@@ -7,6 +7,7 @@
 #include <QColor>
 #include <QList>
 #include <QJsonArray>
+#include <QJsonObject>
 #include <QString>
 
 namespace JsonStruct {
@@ -28,19 +29,19 @@ private:
     static void registerQStringList() {
         TypeRegistry::instance().registerType<QStringList>(
             // toJson
-            [](const QStringList& list) -> QJsonValue {
-                QJsonArray arr;
+            [](const QStringList& list) -> JsonStruct::JsonValue {
+                JsonStruct::JsonValue::ArrayType arr;
                 for (const auto& str : list) {
-                    arr.append(str);
+                    arr.push_back(JsonStruct::JsonValue(str.toStdString()));
                 }
-                return arr;
+                return JsonStruct::JsonValue(arr);
             },
             // fromJson
-            [](const QJsonValue& json, const QStringList& defaultValue) -> QStringList {
+            [](const JsonStruct::JsonValue& json, const QStringList& defaultValue) -> QStringList {
                 if (json.isArray()) {
                     QStringList result;
                     for (const auto& item : json.toArray()) {
-                        result << item.toString();
+                        result << QString::fromStdString(item.toString());
                     }
                     return result; // Directly return result, supports empty array
                 }
@@ -53,17 +54,18 @@ private:
     static void registerQPointF() {
         TypeRegistry::instance().registerType<QPointF>(
             // toJson
-            [](const QPointF& point) -> QJsonValue {
-                QJsonObject obj;
-                obj["x"] = point.x();
-                obj["y"] = point.y();
-                return obj;
+            [](const QPointF& point) -> JsonStruct::JsonValue {
+                JsonStruct::JsonValue::ArrayType arr;
+                arr.push_back(JsonStruct::JsonValue(point.x()));
+                arr.push_back(JsonStruct::JsonValue(point.y()));
+                return JsonStruct::JsonValue(arr);
             },
             // fromJson
-            [](const QJsonValue& json, const QPointF& defaultValue) -> QPointF {
-                if (json.isObject()) {
-                    auto obj = json.toObject();
-                    return QPointF(obj["x"].toDouble(), obj["y"].toDouble());
+            [](const JsonStruct::JsonValue& json, const QPointF& defaultValue) -> QPointF {
+                if (json.isArray()) {
+                    // auto obj = json.toObject();
+                    auto arr = json.toArray();
+                    return QPointF(arr[0].toDouble(), arr[1].toDouble());
                 }
                 return defaultValue;
             }
@@ -74,16 +76,16 @@ private:
     static void registerQRectF() {
         TypeRegistry::instance().registerType<QRectF>(
             // toJson
-            [](const QRectF& rect) -> QJsonValue {
-                QJsonArray arr;
-                arr.append(rect.x());
-                arr.append(rect.y());
-                arr.append(rect.width());
-                arr.append(rect.height());
-                return arr;
+            [](const QRectF& rect) -> JsonStruct::JsonValue {
+                JsonStruct::JsonValue::ArrayType arr;
+                arr.push_back(JsonStruct::JsonValue(rect.x()));
+                arr.push_back(JsonStruct::JsonValue(rect.y()));
+                arr.push_back(JsonStruct::JsonValue(rect.width()));
+                arr.push_back(JsonStruct::JsonValue(rect.height()));
+                return JsonStruct::JsonValue(arr);
             },
             // fromJson
-            [](const QJsonValue& json, const QRectF& defaultValue) -> QRectF {
+            [](const JsonStruct::JsonValue& json, const QRectF& defaultValue) -> QRectF {
                 if (json.isArray()) {
                     auto arr = json.toArray();
                     if (arr.size() == 4) {
@@ -100,16 +102,16 @@ private:
     static void registerQRect() {
         TypeRegistry::instance().registerType<QRect>(
             // toJson
-            [](const QRect& rect) -> QJsonValue {
-                QJsonArray arr;
-                arr.append(rect.x());
-                arr.append(rect.y());
-                arr.append(rect.width());
-                arr.append(rect.height());
-                return arr;
+            [](const QRect& rect) -> JsonStruct::JsonValue {
+                JsonStruct::JsonValue::ArrayType arr;
+                arr.push_back(JsonStruct::JsonValue(rect.x()));
+                arr.push_back(JsonStruct::JsonValue(rect.y()));
+                arr.push_back(JsonStruct::JsonValue(rect.width()));
+                arr.push_back(JsonStruct::JsonValue(rect.height()));
+                return JsonStruct::JsonValue(arr);
             },
             // fromJson
-            [](const QJsonValue& json, const QRect& defaultValue) -> QRect {
+            [](const JsonStruct::JsonValue& json, const QRect& defaultValue) -> QRect {
                 if (json.isArray()) {
                     auto arr = json.toArray();
                     if (arr.size() == 4) {
@@ -126,16 +128,16 @@ private:
     static void registerQColor() {
         TypeRegistry::instance().registerType<QColor>(
             // toJson
-            [](const QColor& color) -> QJsonValue {
-                QJsonArray arr;
-                arr.append(color.red());
-                arr.append(color.green());
-                arr.append(color.blue());
-                arr.append(color.alpha());
-                return arr;
+            [](const QColor& color) -> JsonStruct::JsonValue {
+                JsonStruct::JsonValue::ArrayType arr;
+                arr.push_back(JsonStruct::JsonValue(color.red()));
+                arr.push_back(JsonStruct::JsonValue(color.green()));
+                arr.push_back(JsonStruct::JsonValue(color.blue()));
+                arr.push_back(JsonStruct::JsonValue(color.alpha()));
+                return JsonStruct::JsonValue(arr);
             },
             // fromJson
-            [](const QJsonValue& json, const QColor& defaultValue) -> QColor {
+            [](const JsonStruct::JsonValue& json, const QColor& defaultValue) -> QColor {
                 if (json.isArray()) {
                     auto arr = json.toArray();
                     if (arr.size() == 4) {
@@ -152,25 +154,23 @@ private:
     static void registerQListQPointF() {
         TypeRegistry::instance().registerType<QList<QPointF>>(
             // toJson
-            [](const QList<QPointF>& list) -> QJsonValue {
-                QJsonArray arr;
+            [](const QList<QPointF>& list) -> JsonStruct::JsonValue {
+                JsonStruct::JsonValue::ArrayType arr;
                 for (const auto& point : list) {
-                    // Use the registered QPointF serializer
-                    arr.append(TypeRegistry::instance().toJson(point));
+                    arr.push_back(TypeRegistry::instance().toJson(point));
                 }
-                return arr;
+                return JsonStruct::JsonValue(arr);
             },
             // fromJson
-            [](const QJsonValue& json, const QList<QPointF>& defaultValue) -> QList<QPointF> {
+            [](const JsonStruct::JsonValue& json, const QList<QPointF>& defaultValue) -> QList<QPointF> {
                 if (json.isArray()) {
                     QList<QPointF> result;
                     for (const auto& item : json.toArray()) {
-                        // Use the registered QPointF deserializer
-                        result << TypeRegistry::instance().fromJson<QPointF>(item, QPointF());
+                        result.push_back(TypeRegistry::instance().fromJson<QPointF>(item, QPointF()));
                     }
-                    return result; // Directly return result, supports empty array
+                    return result;
                 }
-                return defaultValue; // Only return default when not an array
+                return defaultValue;
             }
         );
     }
@@ -184,6 +184,31 @@ namespace {
         }
     };
     static QtTypesAutoRegistrar qt_types_auto_registrar;
+}
+
+// 添加类型转换函数
+inline QJsonValue toQJsonValue(const JsonStruct::JsonValue& value) {
+    // 根据JsonStruct::JsonValue的实际内容进行转换
+    if (value.isBool()) {
+        return QJsonValue(value.toBool());
+    } else if (value.isNumber()) {
+        return QJsonValue(value.toDouble());
+    } else if (value.isString()) {
+        return QJsonValue(QString::fromStdString(value.toString()));
+    } else if (value.isArray()) {
+        QJsonArray arr;
+        for (const auto& item : value.toArray()) {
+            arr.append(toQJsonValue(item));
+        }
+        return arr;
+    } else if (value.isObject()) {
+        QJsonObject obj;
+        for (const auto& [key, val] : value.toObject()) {
+            obj[QString::fromStdString(key)] = toQJsonValue(val);
+        }
+        return obj;
+    }
+    return QJsonValue();
 }
 
 } // namespace JsonStruct

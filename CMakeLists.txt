@@ -14,6 +14,9 @@ include_directories(src/std_types)
 include_directories(src/qt_types)
 include_directories(src/json_engine)
 
+# 添加Qt支持
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+
 # Core library sources
 set(CORE_SOURCES
     src/json_engine/json_value.cpp
@@ -43,10 +46,11 @@ target_include_directories(json_struct INTERFACE
     $<INSTALL_INTERFACE:include/jsonstruct>
 )
 
+target_link_libraries(json_struct PRIVATE Qt6::Core Qt6::Widgets)
 target_compile_features(json_struct PRIVATE cxx_std_17)
 
 # 选项控制是否编译测试和示例
-option(BUILD_TESTS "Build test targets" OFF)
+option(BUILD_TESTS "Build test targets" ON)
 option(BUILD_EXAMPLES "Build example targets" OFF)
 
 if(BUILD_TESTS)
