@@ -1,6 +1,6 @@
 # PowerShell script to run all test executables in build/Debug
 echo "Running all JsonStruct test executables..."
-$testDir = "build/Desktop_Qt_6_2_2_MSVC2019_64bit-Debug"
+$testDir = "build/Release"
 $testPattern = "test_*.exe"
 $testFiles = Get-ChildItem -Path $testDir -Filter $testPattern | Sort-Object Name
 

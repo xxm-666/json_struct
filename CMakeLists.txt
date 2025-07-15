@@ -14,9 +14,6 @@ include_directories(src/std_types)
 include_directories(src/qt_types)
 include_directories(src/json_engine)
 
-# 添加Qt支持
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
-
 # Core library sources
 set(CORE_SOURCES
     src/json_engine/json_value.cpp
@@ -46,7 +43,14 @@ target_include_directories(json_struct INTERFACE
     $<INSTALL_INTERFACE:include/jsonstruct>
 )
 
-target_link_libraries(json_struct PRIVATE Qt6::Core Qt6::Widgets)
+# 可选的Qt支持
+option(ENABLE_QT_SUPPORT "Enable Qt support" OFF)
+
+if(ENABLE_QT_SUPPORT)
+    find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+    target_link_libraries(json_struct PRIVATE Qt6::Core Qt6::Widgets)
+endif()
+
 target_compile_features(json_struct PRIVATE cxx_std_17)
 
 # 选项控制是否编译测试和示例

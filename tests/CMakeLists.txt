@@ -1,6 +1,11 @@
 # tests/CMakeLists.txt
-# 添加Qt支持
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+# 设置Qt支持为可选，并默认关闭
+option(ENABLE_QT_SUPPORT "Enable Qt support" OFF)
+
+if(ENABLE_QT_SUPPORT)
+    # 添加Qt支持
+    find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+endif()
 
 add_executable(test_precision_fix_en tests/test_precision_fix_en.cpp)
 target_link_libraries(test_precision_fix_en json_struct)
@@ -94,11 +99,11 @@ add_executable(test_json_pointer tests/test_json_pointer.cpp)
 target_link_libraries(test_json_pointer json_struct)
 target_compile_features(test_json_pointer PRIVATE cxx_std_17)
 
-add_executable(json_struct_tests tests/test_qt_types.cpp)
-target_link_libraries(json_struct_tests PRIVATE json_struct)
-target_compile_features(json_struct_tests PRIVATE cxx_std_17)
-
-target_link_libraries(json_struct_tests PRIVATE Qt6::Core Qt6::Widgets)
+if (ENABLE_QT_SUPPORT)
+    add_executable(json_struct_tests tests/test_qt_types.cpp)
+    target_link_libraries(json_struct_tests PRIVATE json_struct)
+    target_compile_features(json_struct_tests PRIVATE cxx_std_17)
+endif()
 
 # Create custom target for all tests
 add_custom_target(tests

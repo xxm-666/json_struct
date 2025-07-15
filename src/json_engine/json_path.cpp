@@ -189,10 +189,10 @@ void JsonPath::parseExpression(const std::vector<Token>& tokens) {
         nodes_.push_back(parseNode(tokens, pos));
     }
     
-    // 验证递归下降操作符后面必须有内容
+    // This check ensures that recursive descent '..' is followed by a valid node
     for (size_t i = 0; i < nodes_.size(); ++i) {
         if (nodes_[i].type == NodeType::RECURSIVE) {
-            // 递归下降操作符后面必须有另一个节点
+            // Recursive descent operator must be followed by another node
             if (i == nodes_.size() - 1) {
                 throw JsonPathException("Recursive descent operator '..' must be followed by a property or expression");
             }
