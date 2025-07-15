@@ -36,7 +36,13 @@ set(CORE_HEADERS
     src/json_engine/json_filter.h
 )
 
+# 添加INTERFACE头文件路径
 add_library(json_struct STATIC ${CORE_SOURCES} ${CORE_HEADERS})
+target_include_directories(json_struct INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+    $<INSTALL_INTERFACE:include/jsonstruct>
+)
+
 target_compile_features(json_struct PRIVATE cxx_std_17)
 
 # 选项控制是否编译测试和示例
@@ -121,3 +127,8 @@ install(EXPORT json_structTargets
         FILE json_structTargets.cmake
         NAMESPACE json_struct::
         DESTINATION lib/cmake/json_struct)
+
+# 更新安装规则，确保头文件路径正确
+install(DIRECTORY src/
+        DESTINATION include/jsonstruct
+        FILES_MATCHING PATTERN "*.h")
