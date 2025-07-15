@@ -48,7 +48,7 @@ int main() {
     obj2.data = {99, 88};
     std::cout << "Before deserialization: id=" << obj2.id << ", name=" << obj2.name << ", data.size=" << obj2.data.size() << std::endl;
     
-    obj2.fromJson(jsonVal.toObject());
+    obj2.fromJson(jsonVal);
     std::cout << "After deserialization: id=" << obj2.id << ", name=" << obj2.name << ", data.size=" << obj2.data.size() << std::endl;
     
     // Test field access

@@ -68,7 +68,7 @@ void test_basic_types() {
     
     // 反序列化测试
     BasicTypes obj2;
-    obj2.fromJson(jsonObj);
+    obj2.fromJson(jsonVal);
     assert(obj2.flag == true);
     assert(obj2.integer == 42);
     assert(std::abs(obj2.decimal - 3.14159) < 0.00001);

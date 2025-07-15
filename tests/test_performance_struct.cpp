@@ -75,7 +75,7 @@ int main() {
             std::cout << "  data size: " << obj2.data.size() << std::endl;
             std::cout << "  properties size: " << obj2.properties.size() << std::endl;
             
-            obj2.fromJson(jsonObj);
+            obj2.fromJson(jsonVal);
             
             std::cout << "After deserialization:" << std::endl;
             std::cout << "  id: " << obj2.id << std::endl;

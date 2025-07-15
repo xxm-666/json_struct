@@ -70,7 +70,7 @@ int main() {
     
     for (const auto& json : serialized) {
         PerformanceStruct obj;
-        obj.fromJson(json.toObject());
+        obj.fromJson(json);
         deserialized.push_back(std::move(obj));
     }
     

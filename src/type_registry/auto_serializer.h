@@ -102,10 +102,12 @@ void fromJsonImpl(T& obj, const JsonStruct::JsonValue::ObjectType& json, std::in
 
 // Main deserialization function
 template<typename T>
-void fromJson(T& obj, const JsonStruct::JsonValue::ObjectType& json) {
+void fromJson(T& obj, const JsonStruct::JsonValue& json) {
     if constexpr (has_json_fields_v<T>) {
-        constexpr auto size = tuple_size_helper<T>::value;
-        fromJsonImpl(obj, json, std::make_index_sequence<size>{});
+        if (json.isObject()) {
+            constexpr auto size = tuple_size_helper<T>::value;
+            fromJsonImpl(obj, json.toObject(), std::make_index_sequence<size>{});
+        }
     }
 }
 
@@ -127,7 +129,7 @@ fromJsonValue(const JsonStruct::JsonValue& value, const T& defaultValue) {
     else if constexpr (has_json_fields_v<T>) {
         T obj = defaultValue;
         if (value.isObject()) {
-            fromJson(obj, value.toObject());
+            fromJson(obj, value);
         }
         return obj;
     }
@@ -220,6 +222,6 @@ public: \
     JsonStruct::JsonValue toJson() const { \
         return JsonStruct::JsonValue(::toJson(*this)); \
     } \
-    void fromJson(const JsonStruct::JsonValue::ObjectType& json) { \
+    void fromJson(const JsonStruct::JsonValue& json) { \
         ::fromJson(*this, json); \
     }

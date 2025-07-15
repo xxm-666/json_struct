@@ -129,7 +129,7 @@ void test_basic_deserialization(TestResult& result) {
     
     // 反序列化
     BasicData restored;
-    restored.fromJson(obj);
+    restored.fromJson(json);
     
     // 验证数据
     if (restored.id != 555) {
@@ -163,7 +163,7 @@ void test_roundtrip_serialization(TestResult& result) {
     // 序列化然后反序列化
     auto json = original.toJson();
     BasicData restored;
-    restored.fromJson(json.toObject());
+    restored.fromJson(json);
     
     // 验证数据完整性
     if (restored.id != original.id) {

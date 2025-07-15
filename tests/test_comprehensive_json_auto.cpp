@@ -220,7 +220,7 @@ void test_basic_types() {
         
         // 反序列化
         BasicTypes obj2;
-        obj2.fromJson(jsonVal.toObject());
+        obj2.fromJson(jsonVal);
         
         TEST_ASSERT(obj2.flag == obj.flag, "Boolean field mismatch");
         TEST_ASSERT(obj2.char_val == obj.char_val, "Char field mismatch");
@@ -289,7 +289,7 @@ void test_nested_structures() {
         
         // 反序列化
         Person person2;
-        person2.fromJson(jsonVal.toObject());
+        person2.fromJson(jsonVal);
         
         TEST_ASSERT(person2.name == person.name, "Person name mismatch");
         TEST_ASSERT(person2.age == person.age, "Person age mismatch");
@@ -316,7 +316,7 @@ void test_edge_cases() {
         
         // 反序列化
         EdgeCases obj2;
-        obj2.fromJson(jsonVal.toObject());
+        obj2.fromJson(jsonVal);
         
         TEST_ASSERT(obj2.empty_string.empty(), "Empty string should remain empty");
         TEST_ASSERT(obj2.empty_vector.empty(), "Empty vector should remain empty");
@@ -445,7 +445,7 @@ void test_performance() {
         
         for (const auto& json : serialized) {
             PerformanceStruct obj;
-            obj.fromJson(json.toObject());
+            obj.fromJson(json);
             deserialized.push_back(std::move(obj));
         }
         
@@ -477,7 +477,7 @@ void test_error_handling() {
         
         // 这应该不会崩溃，而是使用默认值
         try {
-            obj.fromJson(empty_json.toObject());
+            obj.fromJson(empty_json);
             TEST_ASSERT(true, "Empty JSON handling successful");
         } catch (...) {
             g_stats.addFail("Empty JSON handling failed");
@@ -489,7 +489,7 @@ void test_error_handling() {
         
         try {
             BasicTypes obj2;
-            obj2.fromJson(invalid_json.toObject());
+            obj2.fromJson(invalid_json);
             // 这里期望能够优雅处理类型转换
             TEST_ASSERT(true, "Type mismatch handling successful");
         } catch (...) {
