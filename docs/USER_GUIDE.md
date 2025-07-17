@@ -45,7 +45,7 @@ std::string jsonText = R"({
 
 JsonValue parsed = JsonValue::parse(jsonText);
 std::cout << "Name: " << parsed["name"].toString() << std::endl;
-std::cout << "Skills count: " << parsed["skills"].toArray().size() << std::endl;
+std::cout << "Skills count: " << parsed["skills"].size() << std::endl;
 ```
 
 ### 3. 处理数组

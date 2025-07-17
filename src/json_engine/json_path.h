@@ -99,6 +99,22 @@ struct PathNode {
 };
 
 /**
+ * @brief JSONPath query result for mutable operations
+ */
+struct MutableQueryResult {
+    std::vector<std::reference_wrapper<JsonStruct::JsonValue>> values;
+    std::vector<std::string> paths;  // The actual paths where values were found
+    
+    bool empty() const { return values.empty(); }
+    size_t size() const { return values.size(); }
+    
+    // Get first result if available
+    std::optional<std::reference_wrapper<JsonStruct::JsonValue>> first() {
+        return empty() ? std::nullopt : std::make_optional(values[0]);
+    }
+};
+
+/**
  * @brief JSONPath query result
  */
 struct QueryResult {
@@ -129,6 +145,57 @@ private:
     void parseExpression(const std::vector<Token>& tokens);
     PathNode parseNode(const std::vector<Token>& tokens, size_t& pos);
     
+    // Evaluator helpers for mutable operations
+    void evaluateNodeMutable(const PathNode& node, 
+                             const std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& inputs,
+                             const std::vector<std::string>& input_paths,
+                             std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                             std::vector<std::string>& output_paths) const;
+    
+    void evaluatePropertyMutable(const std::string& property,
+                                const std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& inputs,
+                                const std::vector<std::string>& input_paths,
+                                std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                                std::vector<std::string>& output_paths) const;
+    
+    void evaluateIndexMutable(int index,
+                             const std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& inputs,
+                             const std::vector<std::string>& input_paths,
+                             std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                             std::vector<std::string>& output_paths) const;
+    
+    void evaluateSliceMutable(int start, int end,
+                             const std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& inputs,
+                             const std::vector<std::string>& input_paths,
+                             std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                             std::vector<std::string>& output_paths) const;
+    
+    void evaluateWildcardMutable(const std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& inputs,
+                                const std::vector<std::string>& input_paths,
+                                std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                                std::vector<std::string>& output_paths) const;
+    
+    void evaluateRecursiveMutable(const PathNode& node,
+                                 const std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& inputs,
+                                 const std::vector<std::string>& input_paths,
+                                 std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                                 std::vector<std::string>& output_paths) const;
+    
+    void collectRecursiveMutable(JsonStruct::JsonValue& value, const std::string& base_path,
+                                std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                                std::vector<std::string>& output_paths) const;
+    
+    void collectRecursivePropertyMutable(JsonStruct::JsonValue& value, const std::string& base_path,
+                                        const std::string& target_property,
+                                        std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                                        std::vector<std::string>& output_paths) const;
+    
+    void evaluateFilterMutable(const std::string& filter_expr,
+                              const std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& inputs,
+                              const std::vector<std::string>& input_paths,
+                              std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& outputs,
+                              std::vector<std::string>& output_paths) const;
+
     // Evaluator helpers
     void evaluateNode(const PathNode& node, 
                       const std::vector<std::reference_wrapper<const JsonStruct::JsonValue>>& inputs,
@@ -200,6 +267,29 @@ public:
     const std::string& expression() const { return expression_; }
     
     /**
+     * @brief Evaluate JSONPath against a mutable JSON value
+     * @param root The root JSON value to query
+     * @return Query results containing matching mutable values and their paths
+     */
+    MutableQueryResult evaluateMutable(JsonStruct::JsonValue& root) const;
+    
+    /**
+     * @brief Get first matching mutable value
+     * @param root The root JSON value to query  
+     * @return First matching mutable value if found
+     */
+    std::optional<std::reference_wrapper<JsonStruct::JsonValue>> 
+    selectFirstMutable(JsonStruct::JsonValue& root) const;
+    
+    /**
+     * @brief Get all matching mutable values
+     * @param root The root JSON value to query
+     * @return Vector of all matching mutable values
+     */
+    std::vector<std::reference_wrapper<JsonStruct::JsonValue>>
+    selectAllMutable(JsonStruct::JsonValue& root) const;
+
+    /**
      * @brief Evaluate JSONPath against a JSON value
      * @param root The root JSON value to query
      * @return Query results containing matching values and their paths
@@ -265,6 +355,32 @@ private:
  * @brief JSONPath convenience functions in JsonValue
  */
 namespace jsonvalue_jsonpath {
+
+/**
+ * @brief Evaluate JSONPath expression against mutable JSON value
+ * @param root The JSON value to query
+ * @param path_expression JSONPath expression
+ * @return Mutable query results
+ */
+jsonpath::MutableQueryResult queryMutable(JsonStruct::JsonValue& root, const std::string& path_expression);
+
+/**
+ * @brief Select first mutable value matching JSONPath
+ * @param root The JSON value to query
+ * @param path_expression JSONPath expression
+ * @return First matching mutable value if found
+ */
+std::optional<std::reference_wrapper<JsonStruct::JsonValue>>
+selectFirstMutable(JsonStruct::JsonValue& root, const std::string& path_expression);
+
+/**
+ * @brief Select all mutable values matching JSONPath
+ * @param root The JSON value to query
+ * @param path_expression JSONPath expression
+ * @return All matching mutable values
+ */
+std::vector<std::reference_wrapper<JsonStruct::JsonValue>>
+selectAllMutable(JsonStruct::JsonValue& root, const std::string& path_expression);
 
 /**
  * @brief Evaluate JSONPath expression against JSON value

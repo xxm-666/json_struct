@@ -381,6 +381,35 @@ QueryResult JsonPath::evaluate(const JsonValue& root) const {
     return result;
 }
 
+MutableQueryResult JsonPath::evaluateMutable(JsonValue& root) const {
+    std::vector<std::reference_wrapper<JsonValue>> current_values;
+    std::vector<std::string> current_paths;
+    
+    // Start with root
+    current_values.emplace_back(std::ref(root));
+    current_paths.emplace_back("$");
+    
+    // Apply each node in sequence
+    for (const auto& node : nodes_) {
+        if (node.type == NodeType::ROOT) {
+            continue; // Already handled
+        }
+        
+        std::vector<std::reference_wrapper<JsonValue>> next_values;
+        std::vector<std::string> next_paths;
+        
+        evaluateNodeMutable(node, current_values, current_paths, next_values, next_paths);
+        
+        current_values = std::move(next_values);
+        current_paths = std::move(next_paths);
+    }
+    
+    MutableQueryResult result;
+    result.values = std::move(current_values);
+    result.paths = std::move(current_paths);
+    return result;
+}
+
 void JsonPath::evaluateNode(const PathNode& node,
                            const std::vector<std::reference_wrapper<const JsonValue>>& inputs,
                            const std::vector<std::string>& input_paths,
@@ -416,6 +445,41 @@ void JsonPath::evaluateNode(const PathNode& node,
     }
 }
 
+void JsonPath::evaluateNodeMutable(const PathNode& node,
+                                  const std::vector<std::reference_wrapper<JsonValue>>& inputs,
+                                  const std::vector<std::string>& input_paths,
+                                  std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                  std::vector<std::string>& output_paths) const {
+    switch (node.type) {
+        case NodeType::PROPERTY:
+            evaluatePropertyMutable(node.property, inputs, input_paths, outputs, output_paths);
+            break;
+            
+        case NodeType::INDEX:
+            evaluateIndexMutable(node.index, inputs, input_paths, outputs, output_paths);
+            break;
+            
+        case NodeType::SLICE:
+            evaluateSliceMutable(node.slice_start, node.slice_end, inputs, input_paths, outputs, output_paths);
+            break;
+            
+        case NodeType::WILDCARD:
+            evaluateWildcardMutable(inputs, input_paths, outputs, output_paths);
+            break;
+            
+        case NodeType::RECURSIVE:
+            evaluateRecursiveMutable(node, inputs, input_paths, outputs, output_paths);
+            break;
+            
+        case NodeType::FILTER:
+            evaluateFilterMutable(node.filter_expr, inputs, input_paths, outputs, output_paths);
+            break;
+            
+        default:
+            break;
+    }
+}
+
 void JsonPath::evaluateProperty(const std::string& property,
                                const std::vector<std::reference_wrapper<const JsonValue>>& inputs,
                                const std::vector<std::string>& input_paths,
@@ -430,6 +494,27 @@ void JsonPath::evaluateProperty(const std::string& property,
                 const auto& child = value[prop_view];
                 if (!child.isNull()) {  // Only add non-null values
                     outputs.emplace_back(std::cref(child));
+                    output_paths.emplace_back(input_paths[i] + "." + property);
+                }
+            }
+        }
+    }
+}
+
+void JsonPath::evaluatePropertyMutable(const std::string& property,
+                                      const std::vector<std::reference_wrapper<JsonValue>>& inputs,
+                                      const std::vector<std::string>& input_paths,
+                                      std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                      std::vector<std::string>& output_paths) const {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        auto& value = inputs[i].get();
+        
+        if (value.isObject()) {
+            std::string_view prop_view(property);
+            if (value.contains(prop_view)) {
+                auto& child = value[prop_view];
+                if (!child.isNull()) {  // Only add non-null values
+                    outputs.emplace_back(std::ref(child));
                     output_paths.emplace_back(input_paths[i] + "." + property);
                 }
             }
@@ -452,6 +537,28 @@ void JsonPath::evaluateIndex(int index,
                 
                 if (normalized_index >= 0 && normalized_index < static_cast<int>(array->size())) {
                     outputs.emplace_back(std::cref((*array)[normalized_index]));
+                    output_paths.emplace_back(input_paths[i] + "[" + std::to_string(normalized_index) + "]");
+                }
+            }
+        }
+    }
+}
+
+void JsonPath::evaluateIndexMutable(int index,
+                                   const std::vector<std::reference_wrapper<JsonValue>>& inputs,
+                                   const std::vector<std::string>& input_paths,
+                                   std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                   std::vector<std::string>& output_paths) const {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        auto& value = inputs[i].get();
+        
+        if (value.isArray()) {
+            auto* array = value.getArray();
+            if (array) {
+                int normalized_index = normalizeArrayIndex(index, array->size());
+                
+                if (normalized_index >= 0 && normalized_index < static_cast<int>(array->size())) {
+                    outputs.emplace_back(std::ref((*array)[normalized_index]));
                     output_paths.emplace_back(input_paths[i] + "[" + std::to_string(normalized_index) + "]");
                 }
             }
@@ -488,6 +595,30 @@ void JsonPath::evaluateSlice(int start, int end,
     }
 }
 
+void JsonPath::evaluateSliceMutable(int start, int end,
+                                   const std::vector<std::reference_wrapper<JsonValue>>& inputs,
+                                   const std::vector<std::string>& input_paths,
+                                   std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                   std::vector<std::string>& output_paths) const {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        auto& value = inputs[i].get();
+        
+        if (value.isArray()) {
+            auto* array = value.getArray();
+            if (array) {
+                int array_size = static_cast<int>(array->size());
+                int norm_start = (start < 0) ? std::max(0, array_size + start) : std::min(start, array_size);
+                int norm_end = (end < 0) ? array_size : std::min(end, array_size);
+                
+                for (int j = norm_start; j < norm_end; ++j) {
+                    outputs.emplace_back(std::ref((*array)[j]));
+                    output_paths.emplace_back(input_paths[i] + "[" + std::to_string(j) + "]");
+                }
+            }
+        }
+    }
+}
+
 void JsonPath::evaluateWildcard(const std::vector<std::reference_wrapper<const JsonValue>>& inputs,
                                const std::vector<std::string>& input_paths,
                                std::vector<std::reference_wrapper<const JsonValue>>& outputs,
@@ -510,6 +641,35 @@ void JsonPath::evaluateWildcard(const std::vector<std::reference_wrapper<const J
                 const auto& array = *opt_array;
                 for (size_t j = 0; j < array.size(); ++j) {
                     outputs.emplace_back(std::cref(array[j]));
+                    output_paths.emplace_back(input_paths[i] + "[" + std::to_string(j) + "]");
+                }
+            }
+        }
+    }
+}
+
+void JsonPath::evaluateWildcardMutable(const std::vector<std::reference_wrapper<JsonValue>>& inputs,
+                                      const std::vector<std::string>& input_paths,
+                                      std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                      std::vector<std::string>& output_paths) const {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        auto& value = inputs[i].get();
+        
+        if (value.isObject()) {
+            auto* obj = value.getObject();
+            if (obj) {
+                for (auto& [key, child] : *obj) {
+                    if (!child.isNull()) {
+                        outputs.emplace_back(std::ref(child));
+                        output_paths.emplace_back(input_paths[i] + "." + std::string(key));
+                    }
+                }
+            }
+        } else if (value.isArray()) {
+            auto* array = value.getArray();
+            if (array) {
+                for (size_t j = 0; j < array->size(); ++j) {
+                    outputs.emplace_back(std::ref((*array)[j]));
                     output_paths.emplace_back(input_paths[i] + "[" + std::to_string(j) + "]");
                 }
             }
@@ -724,6 +884,23 @@ JsonPath::selectAll(const JsonValue& root) const {
     return result.values;
 }
 
+jsonpath::MutableQueryResult queryMutable(JsonValue& root, const std::string& path_expression) {
+    jsonpath::JsonPath path(path_expression);
+    return path.evaluateMutable(root);
+}
+
+std::optional<std::reference_wrapper<JsonValue>> 
+JsonPath::selectFirstMutable(JsonValue& root) const {
+    auto result = evaluateMutable(root);
+    return result.first();
+}
+
+std::vector<std::reference_wrapper<JsonValue>>
+JsonPath::selectAllMutable(JsonValue& root) const {
+    auto result = evaluateMutable(root);
+    return std::move(result.values);
+}
+
 bool JsonPath::isValidExpression(const std::string& expression) {
     try {
         JsonPath path(expression);
@@ -762,6 +939,111 @@ int JsonPath::normalizeArrayIndex(int index, size_t array_size) {
     return index;
 }
 
+void JsonPath::evaluateRecursiveMutable(const PathNode& node,
+                                       const std::vector<std::reference_wrapper<JsonValue>>& inputs,
+                                       const std::vector<std::string>& input_paths,
+                                       std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                       std::vector<std::string>& output_paths) const {
+    // For recursive descent, we need to check if there's a next node
+    // If there is, we collect all values and then apply the next operation
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        auto& value = inputs[i].get();
+        const std::string& base_path = input_paths[i];
+        
+        if (node.property.empty()) {
+            // Standard recursive descent - collect all nodes
+            collectRecursiveMutable(value, base_path, outputs, output_paths);
+        } else {
+            // Recursive search for specific property
+            collectRecursivePropertyMutable(value, base_path, node.property, outputs, output_paths);
+        }
+    }
+}
+
+void JsonPath::collectRecursiveMutable(JsonValue& value, const std::string& base_path,
+                                      std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                      std::vector<std::string>& output_paths) const {
+    // Add current value
+    outputs.emplace_back(std::ref(value));
+    output_paths.emplace_back(base_path);
+    
+    // Recursively collect from children
+    if (value.isObject()) {
+        auto* obj = value.getObject();
+        if (obj) {
+            for (auto& [key, child] : *obj) {
+                if (!child.isNull()) {
+                    collectRecursiveMutable(child, base_path + "." + std::string(key), outputs, output_paths);
+                }
+            }
+        }
+    } else if (value.isArray()) {
+        auto* array = value.getArray();
+        if (array) {
+            for (size_t i = 0; i < array->size(); ++i) {
+                collectRecursiveMutable((*array)[i], base_path + "[" + std::to_string(i) + "]", outputs, output_paths);
+            }
+        }
+    }
+}
+
+void JsonPath::collectRecursivePropertyMutable(JsonValue& value, const std::string& base_path,
+                                              const std::string& target_property,
+                                              std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                              std::vector<std::string>& output_paths) const {
+    // Check if current value has the target property
+    if (value.isObject()) {
+        std::string_view prop_view(target_property);
+        if (value.contains(prop_view)) {
+            auto& child = value[prop_view];
+            if (!child.isNull()) {
+                outputs.emplace_back(std::ref(child));
+                output_paths.emplace_back(base_path + "." + target_property);
+            }
+        }
+        
+        // Recursively search in all child values
+        auto* obj = value.getObject();
+        if (obj) {
+            for (auto& [key, child] : *obj) {
+                if (!child.isNull()) {
+                    collectRecursivePropertyMutable(child, base_path + "." + std::string(key), target_property, outputs, output_paths);
+                }
+            }
+        }
+    } else if (value.isArray()) {
+        auto* array = value.getArray();
+        if (array) {
+            for (size_t i = 0; i < array->size(); ++i) {
+                collectRecursivePropertyMutable((*array)[i], base_path + "[" + std::to_string(i) + "]", target_property, outputs, output_paths);
+            }
+        }
+    }
+}
+
+void JsonPath::evaluateFilterMutable(const std::string& filter_expr,
+                                     const std::vector<std::reference_wrapper<JsonValue>>& inputs,
+                                     const std::vector<std::string>& input_paths,
+                                     std::vector<std::reference_wrapper<JsonValue>>& outputs,
+                                     std::vector<std::string>& output_paths) const {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        auto& value = inputs[i].get();
+        
+        if (value.isArray()) {
+            auto* array = value.getArray();
+            if (array) {
+                for (size_t j = 0; j < array->size(); ++j) {
+                    auto& item = (*array)[j];
+                    if (evaluateFilterCondition(filter_expr, item)) {
+                        outputs.emplace_back(std::ref(item));
+                        output_paths.emplace_back(input_paths[i] + "[" + std::to_string(j) + "]");
+                    }
+                }
+            }
+        }
+    }
+}
+
 } // namespace jsonpath
 
 namespace jsonvalue_jsonpath {
@@ -786,6 +1068,23 @@ std::vector<std::reference_wrapper<const JsonValue>>
 selectAll(const JsonValue& root, const std::string& path_expression) {
     jsonpath::JsonPath path(path_expression);
     return path.selectAll(root);
+}
+
+jsonpath::MutableQueryResult queryMutable(JsonValue& root, const std::string& path_expression) {
+    jsonpath::JsonPath path(path_expression);
+    return path.evaluateMutable(root);
+}
+
+std::optional<std::reference_wrapper<JsonValue>>
+selectFirstMutable(JsonValue& root, const std::string& path_expression) {
+    jsonpath::JsonPath path(path_expression);
+    return path.selectFirstMutable(root);
+}
+
+std::vector<std::reference_wrapper<JsonValue>>
+selectAllMutable(JsonValue& root, const std::string& path_expression) {
+    jsonpath::JsonPath path(path_expression);
+    return path.selectAllMutable(root);
 }
 
 } // namespace jsonvalue_jsonpath

@@ -86,6 +86,11 @@ add_executable(test_json_filter_basic tests/test_json_filter_basic.cpp)
 target_link_libraries(test_json_filter_basic PRIVATE test_framework json_struct)
 target_compile_features(test_json_filter_basic PRIVATE cxx_std_17)
 
+# JSON Path可修改操作测试
+add_executable(test_json_path_mutable tests/test_json_path_mutable.cpp)
+target_link_libraries(test_json_path_mutable PRIVATE test_framework json_struct)
+target_compile_features(test_json_path_mutable PRIVATE cxx_std_17)
+
 # JSON Path基础测试
 add_executable(test_json_path_basic tests/test_json_path_basic.cpp)
 target_link_libraries(test_json_path_basic PRIVATE test_framework json_struct)
@@ -130,7 +135,7 @@ add_custom_target(build_all_tests
             test_json_pointer            test_basic_functionality test_complex_structures 
             test_error_handling test_complex_nested_containers test_all_runner
             test_minimal_jsonvalue test_json_filter_basic test_json_path_basic
-            test_serialization_simple test_type_conversion_boundary
+            test_json_path_mutable test_serialization_simple test_type_conversion_boundary
             test_json_query_generator
     COMMENT "Building all test executables"
 )

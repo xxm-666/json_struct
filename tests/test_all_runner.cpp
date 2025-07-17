@@ -32,7 +32,7 @@ public:
     TestRunner() {
         testExecutables = {
             "test_core_functionality.exe",
-            "test_json_auto.exe", 
+            "test_json_auto.exe",
             "test_qt_types_new.exe",
             "test_enhanced_features.exe",
             "test_custom_types.exe",
@@ -78,7 +78,7 @@ public:
                     buffer[bytesRead] = '\0';
                     result += buffer;
                 }
-                
+
                 WaitForSingleObject(pi.hProcess, INFINITE);
                 CloseHandle(pi.hProcess);
                 CloseHandle(pi.hThread);

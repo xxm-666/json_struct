@@ -148,29 +148,6 @@ install(EXPORT json_structTargets
         NAMESPACE json_struct::
         DESTINATION lib/cmake/json_struct)
 
-# 添加Qt终极测试
-add_executable(test_qt_ultimate test_qt_ultimate.cpp)
-target_link_libraries(test_qt_ultimate json_struct)
-
-# 添加JsonPath调试程序
-add_executable(debug_jsonpath debug_jsonpath.cpp)
-target_link_libraries(debug_jsonpath json_struct)
-target_compile_features(debug_jsonpath PRIVATE cxx_std_17)
-
-# 添加LazyQuery调试程序
-add_executable(debug_lazy_query debug_lazy_query.cpp)
-target_link_libraries(debug_lazy_query json_struct)
-
-add_executable(debug_recursive_desc debug_recursive_desc.cpp)
-target_link_libraries(debug_recursive_desc json_struct)
-
-add_executable(debug_large_object debug_large_object.cpp)
-target_link_libraries(debug_large_object json_struct)
-
-add_executable(debug_large_structure debug_large_structure.cpp)
-target_link_libraries(debug_large_structure json_struct)
-target_compile_features(debug_lazy_query PRIVATE cxx_std_17)
-
 # 更新安装规则，确保头文件路径正确
 install(DIRECTORY src/
         DESTINATION include/jsonstruct
