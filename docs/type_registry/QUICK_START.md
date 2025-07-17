@@ -193,17 +193,6 @@ struct UserProfile {
 };
 ```
 
-### 只读序列化
-```cpp
-struct Statistics {
-    int total_count;
-    double average_score;
-    std::string last_updated;
-    
-    // 只支持序列化，不支持反序列化
-    JSON_FIELDS_READONLY(total_count, average_score, last_updated)
-};
-```
 
 ## ⚙️ 高级特性预览
 
@@ -224,15 +213,5 @@ try {
     std::cout << "解析失败: " << e.what() << std::endl;
 }
 ```
-
-## 🎯 下一步
-
-**恭喜！您已经掌握了JsonStruct Registry的基础用法。**
-
-继续学习：
-- 📚 [STL类型详细指南](../std_types/CONTAINER_GUIDE.md) - 深入了解STL类型支持
-- 🖼️ [Qt集成指南](../qt_types/QT_INTEGRATION.md) - Qt类型的使用方法  
-- 🔧 [自定义类型注册](CUSTOM_TYPES.md) - 注册您自己的类型
-- ⚡ [性能优化建议](BEST_PRACTICES.md) - 最佳实践和性能调优
 
 **核心记住一点**: `JSON_FIELDS()` 宏是一切的开始！

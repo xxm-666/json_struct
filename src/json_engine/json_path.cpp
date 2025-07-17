@@ -192,8 +192,8 @@ void JsonPath::parseExpression(const std::vector<Token>& tokens) {
     // This check ensures that recursive descent '..' is followed by a valid node
     for (size_t i = 0; i < nodes_.size(); ++i) {
         if (nodes_[i].type == NodeType::RECURSIVE) {
-            // Recursive descent operator must be followed by another node
-            if (i == nodes_.size() - 1) {
+            // Recursive descent operator must be followed by another node OR have a target property
+            if (i == nodes_.size() - 1 && nodes_[i].property.empty()) {
                 throw JsonPathException("Recursive descent operator '..' must be followed by a property or expression");
             }
         }
@@ -338,6 +338,13 @@ PathNode JsonPath::parseNode(const std::vector<Token>& tokens, size_t& pos) {
         
         case TokenType::RECURSIVE:
             ++pos;
+            // Check if followed by identifier for recursive property search
+            if (pos < tokens.size() && tokens[pos].type == TokenType::IDENTIFIER) {
+                PathNode node(NodeType::RECURSIVE);
+                node.property = tokens[pos].value;
+                ++pos;
+                return node;
+            }
             return PathNode(NodeType::RECURSIVE);
             
         default:
@@ -397,7 +404,7 @@ void JsonPath::evaluateNode(const PathNode& node,
             break;
             
         case NodeType::RECURSIVE:
-            evaluateRecursive(inputs, input_paths, outputs, output_paths);
+            evaluateRecursive(node, inputs, input_paths, outputs, output_paths);
             break;
             
         case NodeType::FILTER:
@@ -510,12 +517,19 @@ void JsonPath::evaluateWildcard(const std::vector<std::reference_wrapper<const J
     }
 }
 
-void JsonPath::evaluateRecursive(const std::vector<std::reference_wrapper<const JsonValue>>& inputs,
+void JsonPath::evaluateRecursive(const PathNode& node,
+                                const std::vector<std::reference_wrapper<const JsonValue>>& inputs,
                                 const std::vector<std::string>& input_paths,
                                 std::vector<std::reference_wrapper<const JsonValue>>& outputs,
                                 std::vector<std::string>& output_paths) const {
     for (size_t i = 0; i < inputs.size(); ++i) {
-        collectRecursive(inputs[i].get(), input_paths[i], outputs, output_paths);
+        if (node.property.empty()) {
+            // Standard recursive descent - collect all nodes
+            collectRecursive(inputs[i].get(), input_paths[i], outputs, output_paths);
+        } else {
+            // Recursive search for specific property
+            collectRecursiveProperty(inputs[i].get(), input_paths[i], node.property, outputs, output_paths);
+        }
     }
 }
 
@@ -541,6 +555,39 @@ void JsonPath::collectRecursive(const JsonValue& value, const std::string& base_
             const auto& array = *opt_array;
             for (size_t j = 0; j < array.size(); ++j) {
                 collectRecursive(array[j], base_path + "[" + std::to_string(j) + "]", outputs, output_paths);
+            }
+        }
+    }
+}
+
+void JsonPath::collectRecursiveProperty(const JsonValue& value, const std::string& base_path,
+                                        const std::string& target_property,
+                                        std::vector<std::reference_wrapper<const JsonValue>>& outputs,
+                                        std::vector<std::string>& output_paths) const {
+    // Check if current value is an object and has the target property
+    if (value.isObject()) {
+        auto opt_object = value.getObject();
+        if (opt_object) {
+            const auto& object = *opt_object;
+            auto it = object.find(target_property);
+            if (it != object.end()) {
+                // Found the target property - add its value
+                outputs.emplace_back(std::cref(it->second));
+                output_paths.emplace_back(base_path + "." + target_property);
+            }
+            
+            // Continue recursive search in all child objects
+            for (const auto& [key, val] : object) {
+                collectRecursiveProperty(val, base_path + "." + key, target_property, outputs, output_paths);
+            }
+        }
+    } else if (value.isArray()) {
+        // Continue recursive search in array elements
+        auto opt_array = value.getArray();
+        if (opt_array) {
+            const auto& array = *opt_array;
+            for (size_t j = 0; j < array.size(); ++j) {
+                collectRecursiveProperty(array[j], base_path + "[" + std::to_string(j) + "]", target_property, outputs, output_paths);
             }
         }
     }

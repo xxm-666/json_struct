@@ -1,8 +1,10 @@
-# JsonStruct Registry - 用户指南
+# JsonStruct Registry - 用户指南与快速入门
 
-## 快速入门
+> 本文档合并了原 USER_GUIDE.md 和 QUICK_START.md 的内容，提供完整的用户指南。
 
-### 1. 基本使用
+## 1. 快速入门
+
+### 1.1 基本使用
 
 ```cpp
 #include "jsonstruct_std.h"
@@ -305,4 +307,175 @@ options.sortKeys = true;             // 排序对象键
 options.escapeUnicode = false;       // 保持Unicode字符
 
 std::string result = json.serialize(options);
+```
+
+## 2. 类型注册与自定义类型
+
+### 2.1 定义和注册自定义类型
+
+```cpp
+#include "jsonstruct_std.h"
+#include <iostream>
+
+using namespace JsonStruct;
+
+// 定义自定义结构
+struct Point {
+    double x, y;
+    Point(double x = 0, double y = 0) : x(x), y(y) {}
+    bool operator==(const Point& other) const {
+        return x == other.x && y == other.y;
+    }
+};
+
+// 注册自定义类型
+REGISTER_JSON_TYPE(Point,
+    // 序列化函数
+    [](const Point& p) -> JsonValue {
+        JsonValue obj;
+        obj["x"] = p.x;
+        obj["y"] = p.y;
+        return obj;
+    },
+    // 反序列化函数
+    [](const JsonValue& json, const Point& defaultValue) -> Point {
+        if (json.isObject()) {
+            double x = json.contains("x") ? json["x"].toDouble() : 0.0;
+            double y = json.contains("y") ? json["y"].toDouble() : 0.0;
+            return Point(x, y);
+        }
+        return defaultValue;
+    }
+);
+
+int main() {
+    // 使用类型注册
+    Point original(3.14, 2.71);
+    
+    // 序列化
+    JsonValue pointJson = TypeRegistry::instance().toJson(original);
+    std::string jsonStr = pointJson.serialize();
+    std::cout << "Point JSON: " << jsonStr << std::endl;
+    
+    // 反序列化
+    Point restored = TypeRegistry::instance().fromJson<Point>(pointJson, Point());
+    std::cout << "Restored Point: (" << restored.x << ", " << restored.y << ")" << std::endl;
+    std::cout << "相等: " << (original == restored ? "是" : "否") << std::endl;
+    
+    return 0;
+}
+```
+
+### 2.2 STL 容器支持
+
+JsonStruct Registry 自动支持常用的 STL 容器类型：
+
+```cpp
+#include "jsonstruct_std.h"
+#include <vector>
+#include <map>
+#include <set>
+
+using namespace JsonStruct;
+
+int main() {
+    // Vector 示例
+    std::vector<int> numbers = {1, 2, 3, 4, 5};
+    JsonValue numbersJson = TypeRegistry::instance().toJson(numbers);
+    std::cout << "Vector JSON: " << numbersJson.serialize() << std::endl;
+    
+    // Map 示例
+    std::map<std::string, std::string> userInfo = {
+        {"name", "Alice"},
+        {"city", "Beijing"},
+        {"job", "Engineer"}
+    };
+    JsonValue mapJson = TypeRegistry::instance().toJson(userInfo);
+    std::cout << "Map JSON: " << mapJson.serialize(2) << std::endl;
+    
+    // Set 示例
+    std::set<std::string> tags = {"cpp", "json", "library"};
+    JsonValue setJson = TypeRegistry::instance().toJson(tags);
+    std::cout << "Set JSON: " << setJson.serialize() << std::endl;
+    
+    return 0;
+}
+```
+
+### 2.3 嵌套容器支持
+
+```cpp
+// 复杂嵌套结构
+std::map<std::string, std::vector<Point>> pointGroups = {
+    {"group1", {Point(1.0, 2.0), Point(3.0, 4.0)}},
+    {"group2", {Point(5.0, 6.0), Point(7.0, 8.0)}}
+};
+
+JsonValue complexJson = TypeRegistry::instance().toJson(pointGroups);
+std::cout << "Complex structure: " << complexJson.serialize(2) << std::endl;
+
+// 反序列化
+auto restored = TypeRegistry::instance().fromJson<decltype(pointGroups)>(complexJson, {});
+```
+
+## 3. 数组和对象操作详解
+
+### 3.1 数组操作示例
+
+```cpp
+// 创建和操作数组
+JsonValue fruits;
+fruits.append("apple");
+fruits.append("banana");
+fruits.append("orange");
+
+// 访问数组元素
+for (size_t i = 0; i < fruits.size(); ++i) {
+    std::cout << "Fruit " << i << ": " << fruits[i].toString() << std::endl;
+}
+
+// 修改数组元素
+fruits[1] = "grape";
+
+// 遍历数组
+for (const auto& fruit : fruits.toArray()) {
+    std::cout << "Fruit: " << fruit.toString() << std::endl;
+}
+```
+
+### 3.2 对象操作示例
+
+```cpp
+// 创建对象
+JsonValue person;
+person["name"] = "Bob";
+person["age"] = 25;
+person["married"] = false;
+
+// 嵌套对象
+JsonValue address;
+address["street"] = "123 Main St";
+address["city"] = "New York";
+person["address"] = address;
+
+// 检查键是否存在
+if (person.contains("address")) {
+    JsonValue addr = person["address"];
+    std::cout << "City: " << addr["city"].toString() << std::endl;
+}
+
+// 遍历对象的所有键值对
+for (const auto& [key, value] : person.toObject()) {
+    std::cout << key << ": ";
+    if (value.isString()) {
+        std::cout << value.toString();
+    } else if (value.isNumber()) {
+        std::cout << value.toDouble();
+    } else if (value.isBool()) {
+        std::cout << (value.toBool() ? "true" : "false");
+    } else {
+        std::cout << value.serialize();
+    }
+    std::cout << std::endl;
+}
 ```

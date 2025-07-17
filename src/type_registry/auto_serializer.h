@@ -2,11 +2,23 @@
 #include "../json_engine/json_value.h"
 #include "registry_core.h"
 #include "field_macros.h"
-#include "../std_types/generic_container_support.h"
+#include "../std_types/std_registry.h"
 #include <type_traits>
 #include <tuple>
 #include <sstream>
 #include <vector>
+
+#ifdef QT_CORE_LIB
+// Include the Qt ultimate registry for type detection
+#include "../qt_types/qt_ultimate_registry.h"
+// Forward declarations to avoid circular dependency
+namespace JsonStruct {
+    namespace QtUniversal {
+        template<typename T> JsonValue ultimateToJson(const T& value);
+        template<typename T> T ultimateFromJson(const JsonValue& json, const T& defaultValue);
+    }
+}
+#endif
 
 template<typename T>
 constexpr bool is_json_primitive_v =
@@ -58,20 +70,37 @@ JsonStruct::JsonValue toJsonValue(const T& value) {
     else if constexpr (has_json_fields_v<T>) {
         return JsonStruct::JsonValue(toJson(value));
     }
-    // 通用容器支持 - 支持任意嵌套的容器类型
+    // Common container support - supports any nested container type
     else if constexpr (JsonStruct::is_container_v<T>) {
         return JsonStruct::containerToJson(value);
     }
-    // pair支持
+    // pair support
     else if constexpr (JsonStruct::is_pair<T>::value) {
         return JsonStruct::pairToJson(value);
     }
+#ifdef QT_CORE_LIB
+    // Qt type support - use Qt universal system as primary fallback
+    else {
+        try {
+            // Try to use Qt ultimate system for Qt types
+            return JsonStruct::QtUniversal::ultimateToJson(value);
+        } catch (...) {
+            // If Qt system fails, try existing registry
+            try {
+                return JsonStruct::TypeRegistry::instance().toJson(value);
+            } catch (...) {
+                return JsonStruct::JsonValue();
+            }
+        }
+    }
+#else
     else {
         return JsonStruct::JsonValue();
     }
+#endif
 }
 
-// 为了支持递归调用，需要定义genericToJsonValue
+// For supporting recursive calls, we need to define genericToJsonValue
 template<typename T>
 JsonStruct::JsonValue JsonStruct::genericToJsonValue(const T& value) {
     return ::toJsonValue(value);
@@ -126,6 +155,15 @@ void fromJson(T& obj, const JsonStruct::JsonValue& json) {
     }
 }
 
+template<typename T>
+T fromJson(const JsonStruct::JsonValue& json) {
+    T obj;
+    if (json.isObject()) {
+        fromJson(obj, json);
+    }
+    return obj;
+}
+
 // Basic type overloads - use overloads instead of specializations  
 inline bool fromJsonValue(const JsonStruct::JsonValue& value, const bool& defaultValue) {
     return value.toBool(defaultValue);
@@ -173,17 +211,33 @@ fromJsonValue(const JsonStruct::JsonValue& value, const T& defaultValue) {
         }
         return obj;
     }
-    // 通用容器支持 - 支持任意嵌套的容器类型
+    // Common container support - supports any nested container type
     else if constexpr (JsonStruct::is_container_v<T>) {
         return JsonStruct::containerFromJson(value, defaultValue);
     }
-    // pair支持
     else if constexpr (JsonStruct::is_pair<T>::value) {
         return JsonStruct::pairFromJson(value, defaultValue);
     }
+#ifdef QT_CORE_LIB
+    // Qt type support - use Qt universal system as primary fallback
+    else {
+        try {
+            // Try to use Qt ultimate system for Qt types
+            return JsonStruct::QtUniversal::template ultimateFromJson<T>(value, defaultValue);
+        } catch (...) {
+            // If Qt system fails, try existing registry
+            try {
+                return JsonStruct::TypeRegistry::instance().fromJson<T>(value, defaultValue);
+            } catch (...) {
+                return defaultValue;
+            }
+        }
+    }
+#else
     else {
         return defaultValue;
     }
+#endif
 }
 
 // Additional overloads for specific integer types to avoid ambiguity
@@ -223,7 +277,6 @@ inline unsigned long long fromJsonValue(const JsonStruct::JsonValue& value, cons
     return static_cast<unsigned long long>(value.toLongLong(defaultValue));
 }
 
-// 为了支持递归调用，需要定义genericFromJsonValue
 template<typename T>
 T JsonStruct::genericFromJsonValue(const JsonStruct::JsonValue& json, const T& defaultValue) {
     return ::fromJsonValue(json, defaultValue);

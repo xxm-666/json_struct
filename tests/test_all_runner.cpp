@@ -30,7 +30,6 @@ private:
 
 public:
     TestRunner() {
-        // 添加所有测试可执行文件
         testExecutables = {
             "test_core_functionality.exe",
             "test_json_auto.exe", 
@@ -45,7 +44,11 @@ public:
             "test_basic_functionality.exe",
             "test_complex_structures.exe",
             "test_error_handling.exe",
-            "test_complex_nested_containers.exe"
+            "test_complex_nested_containers.exe",
+            "test_json_filter_basic.exe",
+            "test_json_path_basic.exe",
+            "test_serialization_simple.exe",
+            "test_type_conversion_boundary.exe"
         };
     }
 
@@ -104,12 +107,11 @@ public:
         result.passedTests = 0;
         result.failedTests = 0;
 
-        // 解析输出，查找测试统计信息
         std::istringstream iss(output);
         std::string line;
         
         while (std::getline(iss, line)) {
-            // 查找 "Total: X, Passed: Y, Failed: Z"
+            //Search "Total: X, Passed: Y, Failed: Z"
             if (line.find("Total:") != std::string::npos && 
                 line.find("Passed:") != std::string::npos) {
                 
@@ -119,18 +121,16 @@ public:
                 
                 if (totalPos != std::string::npos && passedPos != std::string::npos) {
                     try {
-                        // 解析 Total 后面的数字
                         std::string totalStr = line.substr(totalPos + 6);
                         size_t commaPos = totalStr.find(',');
                         if (commaPos != std::string::npos) {
                             totalStr = totalStr.substr(0, commaPos);
                         }
-                        // 去除空格
+                        /// remove leading and trailing whitespace
                         totalStr.erase(0, totalStr.find_first_not_of(" \t"));
                         totalStr.erase(totalStr.find_last_not_of(" \t") + 1);
                         result.totalTests = std::stoi(totalStr);
                         
-                        // 解析 Passed 后面的数字
                         std::string passedStr = line.substr(passedPos + 7);
                         commaPos = passedStr.find(',');
                         if (commaPos != std::string::npos) {
@@ -140,7 +140,6 @@ public:
                         passedStr.erase(passedStr.find_last_not_of(" \t") + 1);
                         result.passedTests = std::stoi(passedStr);
                         
-                        // 解析 Failed 后面的数字
                         if (failedPos != std::string::npos) {
                             std::string failedStr = line.substr(failedPos + 7);
                             commaPos = failedStr.find(',');
@@ -152,13 +151,11 @@ public:
                             result.failedTests = std::stoi(failedStr);
                         }
                     } catch (const std::exception& e) {
-                        // 解析失败，使用默认值
                         std::cerr << "Failed to parse test counts for " << testName << ": " << e.what() << std::endl;
                     }
                 }
             }
             
-            // 检查是否所有测试都通过
             if (line.find("ALL TESTS PASSED!") != std::string::npos) {
                 result.passed = true;
             } else if (line.find("SOME TESTS FAILED!") != std::string::npos) {
@@ -246,12 +243,11 @@ public:
 
         if (suitesFailed == 0) {
             std::cout << std::endl;
-            std::cout << "🎉 ALL TEST SUITES PASSED! 🎉" << std::endl;
+            std::cout << "ALL TEST SUITES PASSED!" << std::endl;
         } else {
             std::cout << std::endl;
-            std::cout << "❌ " << suitesFailed << " TEST SUITE(S) FAILED!" << std::endl;
+            std::cout << " " << suitesFailed << " TEST SUITE(S) FAILED!" << std::endl;
             
-            // 显示失败的测试详情
             std::cout << std::endl;
             std::cout << "=== Failed Test Details ===" << std::endl;
             for (const auto& result : results) {

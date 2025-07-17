@@ -20,6 +20,8 @@ set(CORE_SOURCES
     src/json_engine/json_query_generator.cpp
     src/json_engine/json_path.cpp
     src/json_engine/json_filter.cpp
+    src/qt_types/qt_ultimate_registry.cpp
+    src/qt_types/qt_common.cpp
 )
 set(CORE_HEADERS
     src/jsonstruct.h
@@ -27,8 +29,9 @@ set(CORE_HEADERS
     src/type_registry/auto_serializer.h
     src/type_registry/field_macros.h
     src/std_types/std_registry.h
-    src/std_types/generic_container_support.h
     src/qt_types/qt_registry.h
+    src/qt_types/qt_ultimate_registry.h
+    src/qt_types/qt_common.h
     src/json_engine/json_value.h
     src/json_engine/json_number.h
     src/json_engine/json_stream_parser.h
@@ -66,21 +69,6 @@ option(BUILD_EXAMPLES "Build example targets" OFF)
 
 if(BUILD_TESTS)
     include(tests/CMakeLists.txt)
-    
-    # 添加统一类型系统测试
-    add_executable(test_unified_system test_unified_system.cpp)
-    target_link_libraries(test_unified_system json_struct)
-    target_include_directories(test_unified_system PRIVATE src)
-    
-    # 添加注册必要性测试
-    add_executable(test_registration_necessity test_registration_necessity.cpp)
-    target_link_libraries(test_registration_necessity json_struct)
-    target_include_directories(test_registration_necessity PRIVATE src)
-    
-    # 添加Qt编译测试
-    add_executable(test_qt_compilation test_qt_compilation.cpp)
-    target_link_libraries(test_qt_compilation json_struct)
-    target_include_directories(test_qt_compilation PRIVATE src)
 endif()
 
 if(BUILD_EXAMPLES)
@@ -114,6 +102,7 @@ install(FILES src/std_types/std_registry.h
 
 # Qt类型支持头文件
 install(FILES src/qt_types/qt_registry.h
+             src/qt_types/qt_ultimate_registry.h
     DESTINATION include/jsonstruct/qt_types
 )
 
@@ -158,6 +147,29 @@ install(EXPORT json_structTargets
         FILE json_structTargets.cmake
         NAMESPACE json_struct::
         DESTINATION lib/cmake/json_struct)
+
+# 添加Qt终极测试
+add_executable(test_qt_ultimate test_qt_ultimate.cpp)
+target_link_libraries(test_qt_ultimate json_struct)
+
+# 添加JsonPath调试程序
+add_executable(debug_jsonpath debug_jsonpath.cpp)
+target_link_libraries(debug_jsonpath json_struct)
+target_compile_features(debug_jsonpath PRIVATE cxx_std_17)
+
+# 添加LazyQuery调试程序
+add_executable(debug_lazy_query debug_lazy_query.cpp)
+target_link_libraries(debug_lazy_query json_struct)
+
+add_executable(debug_recursive_desc debug_recursive_desc.cpp)
+target_link_libraries(debug_recursive_desc json_struct)
+
+add_executable(debug_large_object debug_large_object.cpp)
+target_link_libraries(debug_large_object json_struct)
+
+add_executable(debug_large_structure debug_large_structure.cpp)
+target_link_libraries(debug_large_structure json_struct)
+target_compile_features(debug_lazy_query PRIVATE cxx_std_17)
 
 # 更新安装规则，确保头文件路径正确
 install(DIRECTORY src/

@@ -96,7 +96,7 @@ public:
     
     // Deserialize registered types
     template<typename T>
-    T fromJson(const JsonValue& json, const T& defaultValue) const {
+    T fromJson(const JsonValue& json, const T& defaultValue = T{}) const {
         std::type_index typeIdx(typeid(T));
         auto it = serializers_.find(typeIdx);
         if (it != serializers_.end()) {

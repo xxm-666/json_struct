@@ -60,20 +60,6 @@ inline std::vector<std::string> split_field_names(const std::string& names) {
     static constexpr auto json_options() { return options; }
 
 /**
- * 📦 Convenient macro: Read-only serialization
- *    
- * Only supports serialization, does not support deserialization
- */
-#define JSON_FIELDS_READONLY(...)                        \
-    auto json_fields() const {                           \
-        return std::tie(__VA_ARGS__);                    \
-    }                                                    \
-    static const char* json_field_names() {             \
-        return #__VA_ARGS__;                             \
-    }                                                    \
-    std::string toJsonString(int indent = 0) const
-
-/**
  * 🎨 Usage examples and best practices:
  * 
  * // Basic usage
@@ -91,9 +77,4 @@ inline std::vector<std::string> split_field_names(const std::string& names) {
  *     JSON_FIELDS(data, admin, tags)
  * };
  * 
- * // Read-only serialization
- * struct ReadOnlyData {
- *     std::string computed_value;
- *     JSON_FIELDS_READONLY(computed_value)
- * };
  */

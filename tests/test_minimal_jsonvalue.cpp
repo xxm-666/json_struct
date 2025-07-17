@@ -22,12 +22,12 @@ int main() {
     }
     
     std::cout << "4. toString() test:" << std::endl;
-    auto internal_get = json_val.getString();
+    auto to_string = json_val.toString();
     std::cout << "   internal getString(): ";
-    if (internal_get) {
+    if (!to_string.empty()) {
         std::cout << "SUCCESS" << std::endl;
-        std::string result = std::string(*internal_get);
-        std::cout << "   converted to string: '" << result << "'" << std::endl;
+        // std::string result = std::string(*internal_get);
+        std::cout << "   converted to string: '" << to_string << "'" << std::endl;
     } else {
         std::cout << "FAILED" << std::endl;
     }
@@ -35,5 +35,11 @@ int main() {
     std::string final_result = json_val.toString("FALLBACK");
     std::cout << "5. Final toString(): '" << final_result << "'" << std::endl;
     
+    int a = 5;
+    JsonValue not_string(a);
+    std::cout << "6. Created JsonValue with int: " << a << std::endl;
+    auto not_string_v = not_string.toString("not a string");
+    std::cout << "non-string JsonValue: '" << not_string_v << "'" << std::endl;
+
     return 0;
 }

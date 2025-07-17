@@ -159,7 +159,8 @@ private:
                           std::vector<std::reference_wrapper<const JsonStruct::JsonValue>>& outputs,
                           std::vector<std::string>& output_paths) const;
     
-    void evaluateRecursive(const std::vector<std::reference_wrapper<const JsonStruct::JsonValue>>& inputs,
+    void evaluateRecursive(const PathNode& node,
+                           const std::vector<std::reference_wrapper<const JsonStruct::JsonValue>>& inputs,
                            const std::vector<std::string>& input_paths,
                            std::vector<std::reference_wrapper<const JsonStruct::JsonValue>>& outputs,
                            std::vector<std::string>& output_paths) const;
@@ -167,6 +168,11 @@ private:
     void collectRecursive(const JsonStruct::JsonValue& value, const std::string& base_path,
                           std::vector<std::reference_wrapper<const JsonStruct::JsonValue>>& outputs,
                           std::vector<std::string>& output_paths) const;
+    
+    void collectRecursiveProperty(const JsonStruct::JsonValue& value, const std::string& base_path,
+                                  const std::string& target_property,
+                                  std::vector<std::reference_wrapper<const JsonStruct::JsonValue>>& outputs,
+                                  std::vector<std::string>& output_paths) const;
     
     void evaluateFilter(const std::string& filter_expr,
                         const std::vector<std::reference_wrapper<const JsonStruct::JsonValue>>& inputs,

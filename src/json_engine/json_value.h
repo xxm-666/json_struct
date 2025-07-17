@@ -394,6 +394,7 @@ public:
         if (!isObject()) {
             value_ = ObjectType{};
         }
+
         return std::get<ObjectType>(value_)[std::string(key)];
     }
 

@@ -74,15 +74,41 @@ add_executable(test_error_handling tests/test_error_handling.cpp)
 target_link_libraries(test_error_handling PRIVATE test_framework json_struct)
 target_compile_features(test_error_handling PRIVATE cxx_std_17)
 
-# 测试运行器
-add_executable(test_runner tests/test_runner.cpp)
-target_link_libraries(test_runner PRIVATE test_framework json_struct)
-target_compile_features(test_runner PRIVATE cxx_std_17)
-
 # 复杂嵌套容器测试
 add_executable(test_complex_nested_containers tests/test_complex_nested_containers.cpp)
 target_link_libraries(test_complex_nested_containers PRIVATE test_framework json_struct)
 target_compile_features(test_complex_nested_containers PRIVATE cxx_std_17)
+
+# 新增测试文件
+
+# JSON Filter基础测试
+add_executable(test_json_filter_basic tests/test_json_filter_basic.cpp)
+target_link_libraries(test_json_filter_basic PRIVATE test_framework json_struct)
+target_compile_features(test_json_filter_basic PRIVATE cxx_std_17)
+
+# JSON Path基础测试
+add_executable(test_json_path_basic tests/test_json_path_basic.cpp)
+target_link_libraries(test_json_path_basic PRIVATE test_framework json_struct)
+target_compile_features(test_json_path_basic PRIVATE cxx_std_17)
+
+# 序列化选项简化测试
+add_executable(test_serialization_simple tests/test_serialization_simple.cpp)
+target_link_libraries(test_serialization_simple PRIVATE test_framework json_struct)
+target_compile_features(test_serialization_simple PRIVATE cxx_std_17)
+
+# 类型转换和边界条件测试
+add_executable(test_type_conversion_boundary tests/test_type_conversion_boundary.cpp)
+target_link_libraries(test_type_conversion_boundary PRIVATE test_framework json_struct)
+target_compile_features(test_type_conversion_boundary PRIVATE cxx_std_17)
+
+add_executable(test_minimal_jsonvalue tests/test_minimal_jsonvalue.cpp)
+target_link_libraries(test_minimal_jsonvalue PRIVATE test_framework json_struct)
+target_compile_features(test_minimal_jsonvalue PRIVATE cxx_std_17)
+
+# JSON查询生成器测试
+add_executable(test_json_query_generator tests/test_json_query_generator.cpp)
+target_link_libraries(test_json_query_generator PRIVATE test_framework json_struct)
+target_compile_features(test_json_query_generator PRIVATE cxx_std_17)
 
 # 全自动测试运行器
 add_executable(test_all_runner tests/test_all_runner.cpp)
@@ -101,8 +127,11 @@ add_custom_target(build_all_tests
     DEPENDS test_core_functionality test_json_auto test_qt_types_new
             test_enhanced_features test_custom_types test_json_parsing 
             test_error_recovery test_performance_struct test_special_numbers 
-            test_json_pointer test_basic_functionality test_complex_structures 
+            test_json_pointer            test_basic_functionality test_complex_structures 
             test_error_handling test_complex_nested_containers test_all_runner
+            test_minimal_jsonvalue test_json_filter_basic test_json_path_basic
+            test_serialization_simple test_type_conversion_boundary
+            test_json_query_generator
     COMMENT "Building all test executables"
 )
 

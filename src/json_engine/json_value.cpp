@@ -14,7 +14,8 @@ void JsonValue::dumpImpl(std::ostream& os, const SerializeOptions& options, int 
         using T = std::decay_t<decltype(value)>;
 
         if constexpr (std::is_same_v<T, std::monostate>) {
-            os << "null";
+            // os << "null";
+            os << "";
         } else if constexpr (std::is_same_v<T, bool>) {
             os << (value ? "true" : "false");
         } else if constexpr (std::is_same_v<T, JsonNumber>) {

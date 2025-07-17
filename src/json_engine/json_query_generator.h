@@ -162,10 +162,10 @@ public:
         size_t processed = 0;
         
         for (auto it = generator.begin(); it != generator.end(); ++it) {
+            ++processed;
             if (!processor(it->first, it->second)) {
                 break;
             }
-            ++processed;
         }
         
         return processed;

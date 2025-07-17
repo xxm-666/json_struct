@@ -42,6 +42,29 @@ namespace JsonStruct {
     using JsonArray = JsonValue::ArrayType;
 }
 
+class JsonStructRegistrar {
+public:
+    static void registerAll(bool includeQt = false) {
+#ifdef QT_CORE_LIB
+        if (includeQt) {
+            registerQtTypes();
+        }
+#endif
+        // Standard types are automatically registered via auto_serializer.h and std_registry.h
+    }
+    
+    static void registerStandardTypes() {
+    }
+    
+#ifdef QT_CORE_LIB
+    // Register Qt types (only if Qt is available)
+    static void registerQtTypes() {
+        // Qt Types need explicit registration as they are not standard C++ types
+        JsonStruct::QtTypesRegistration::registerAllQtTypes();
+    }
+#endif
+};
+
 /**
  * Quick usage example:
  * 

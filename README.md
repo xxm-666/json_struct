@@ -16,15 +16,19 @@ jsonstruct_registry/
 │   │   ├── std_registry.h         # STL类型注册主头文件
 │   │   ├── container_registry.h   # 容器类型注册
 │   │   └── custom_types_example.h # 自定义类型示例
-│   ├── qt_types/                  # � Qt类型注册 (可选)
-│   │   └── qt_registry.h          # Qt类型注册实现
+│   ├── qt_types/                  # 🖼️ Qt类型注册 (可选)
+│   │   ├── qt_registry.h          # 基础Qt类型注册实现
+│   │   ├── qt_ultimate_registry.h # 通用的Qt类型注册系统
+│   │   └── qt_common.h            # Qt公共类型注册
 │   └── json_engine/               # 📦 JSON支撑引擎 (内部使用)
 │       ├── json_value.h           # JSON值表示
 │       ├── json_value.cpp         # JSON核心实现
 │       ├── json_number.h          # 数值精度处理
 │       ├── json_stream_parser.h   # 流式解析器
 │       ├── json_path.h            # JSONPath查询引擎
-│       └── json_path.cpp          # JSONPath实现
+│       ├── json_path.cpp          # JSONPath实现
+│       ├── json_query_generator.h # 🚀 流式查询生成器
+│       └── json_query_generator.cpp # 懒加载查询实现
 ├── tests/                         # 测试套件
 │   ├── test_std_system.cpp        # 🎯 STL类型注册测试 (重点)
 │   ├── test_enhanced_features.cpp # 高级特性测试
@@ -35,6 +39,7 @@ jsonstruct_registry/
 │   ├── test_jsonpath_clean.cpp    # JSONPath清洁测试
 │   ├── test_jsonpath_unified.cpp  # JSONPath统一测试
 │   ├── test_advanced_jsonpath.cpp # JSONPath高级测试
+│   ├── test_json_query_generator.cpp # 🚀 流式查询生成器测试
 │   ├── test_precision_fix_en.cpp  # 数值精度测试
 │   ├── test_special_numbers.cpp   # 特殊数值测试
 │   └── test_error_recovery.cpp    # 错误恢复测试
@@ -141,6 +146,7 @@ cmake --build build --config Release
 
 # 运行类型注册系统测试
 ./build/Release/test_std_system          # STL类型测试
+./build/Release/test_json_query_generator # 流式查询生成器测试
 ./build/Release/example_enhanced_simple  # 基础功能演示
 ```
 
@@ -188,6 +194,45 @@ DataContainer restored = DataContainer::fromJsonString(json);
 - **递归类型支持**: 自动处理嵌套对象和循环引用
 - **默认值支持**: 反序列化时的智能默认值处理
 
+### 🚀 流式查询生成器 (JsonQueryGenerator)
+- **内存高效**: 懒加载模式，只在需要时生成结果
+- **早期终止**: 支持查找第一个匹配项后立即停止
+- **批量处理**: 可配置的批量大小，适合大数据处理
+- **迭代器接口**: 现代C++范围for循环支持
+- **自定义处理**: 支持自定义结果处理函数
+
+**流式查询示例:**
+```cpp
+#include "jsonstruct.h"
+using namespace JsonStruct;
+
+// 创建大型JSON数据
+JsonValue largeData = JsonValue::Array{...}; // 假设有10万条记录
+
+// 使用流式查询找到第一个匹配项 (内存高效)
+auto firstMatch = JsonStreamingQuery::findFirst(largeData, "$.users[?(@.age > 30)]");
+if (firstMatch) {
+    std::cout << "找到匹配用户: " << firstMatch->first->toString() << std::endl;
+}
+
+// 懒加载处理大量结果
+JsonStreamingQuery::lazyQuery(largeData, "$.products[*]", 
+    [](const JsonValue* value, const std::string& path) -> bool {
+        // 处理每个产品，返回false可提前终止
+        std::cout << "处理产品: " << path << std::endl;
+        return true; // 继续处理下一个
+    });
+
+// 批量流式处理
+auto generator = JsonStreamingQuery::createGenerator(largeData, "$.items[*]", 
+    {.maxResults = 1000, .batchSize = 50});
+
+for (auto it = generator.begin(); it != generator.end(); ++it) {
+    // 自动按批次处理，内存占用恒定
+    processItem(it->first, it->second);
+}
+```
+
 **自定义类型注册:**
 ```cpp
 // 注册自定义类型
@@ -211,6 +256,7 @@ TypeRegistry::registerType<MyCustomType>(
 - **完美转发**: 高效的参数传递
 - **结构化绑定**: 现代C++语法支持
 - **类型推导**: auto和decltype的广泛使用
+- **移动语义**: 零拷贝优化和RAII资源管理
 
 ## 📚 文档与指南
 
@@ -243,7 +289,9 @@ TypeRegistry::registerType<MyCustomType>(
 - ⚙️ **配置管理**: 应用配置文件的序列化和反序列化
 - 🎮 **游戏开发**: 游戏数据、存档文件的自动序列化  
 - 🖥️ **桌面应用**: Qt应用的设置和状态保存
-- � **跨平台项目**: 需要统一数据格式的多平台应用
+- 🌐 **跨平台项目**: 需要统一数据格式的多平台应用
+- 📈 **大数据处理**: 使用流式查询处理大型JSON数据集
+- 🔍 **实时查询**: 需要高效JSONPath查询和结果流式处理的场景
 
 ## 📈 性能特性
 
@@ -251,6 +299,8 @@ TypeRegistry::registerType<MyCustomType>(
 - **编译时优化**: 模板和constexpr的广泛使用
 - **类型注册缓存**: 运行时类型查询O(1)复杂度
 - **内存高效**: 最小化序列化过程中的内存分配
+- **流式处理**: JsonQueryGenerator支持大数据懒加载处理
+- **早期终止**: 查询可在找到结果后立即停止，节省计算资源
 
 ## 🆚 对比其他方案
 
@@ -261,6 +311,7 @@ TypeRegistry::registerType<MyCustomType>(
 | **STL支持** | ⭐⭐⭐⭐⭐ 完整 | ⭐⭐ 需手写 | ⭐⭐⭐ 部分支持 |
 | **Qt支持** | ⭐⭐⭐⭐⭐ 原生 | ⭐ 需手写 | ⭐ 基本不支持 |
 | **类型安全** | ⭐⭐⭐⭐⭐ 编译时 | ⭐⭐⭐ 运行时 | ⭐⭐⭐ 运行时 |
+| **大数据处理** | ⭐⭐⭐⭐⭐ 流式懒加载 | ⭐⭐ 需手动优化 | ⭐⭐⭐ 内存密集 |
 | **性能** | ⭐⭐⭐⭐ 优秀 | ⭐⭐⭐⭐⭐ 最优 | ⭐⭐⭐ 良好 |
 
 ## 🎨 设计理念
