@@ -77,7 +77,7 @@ JsonValue json = JsonValue(toJson(list));
 
 ### 概述
 
-JsonStruct Registry 成功实现了完整的 Qt 类型支持系统，包括通用的 Qt 容器序列化和基础 Qt 类型的序列化。这个系统可以处理任意复杂的 Qt 类型嵌套组合。
+JsonStruct 成功实现了完整的 Qt 类型支持系统，包括通用的 Qt 容器序列化和基础 Qt 类型的序列化。这个系统可以处理任意复杂的 Qt 类型嵌套组合。
 
 ### 实现架构
 

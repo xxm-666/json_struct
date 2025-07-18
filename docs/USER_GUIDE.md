@@ -1,4 +1,4 @@
-# JsonStruct Registry - 用户指南与快速入门
+# JsonStruct - 用户指南与快速入门
 
 > 本文档合并了原 USER_GUIDE.md 和 QUICK_START.md 的内容，提供完整的用户指南。
 
@@ -368,7 +368,7 @@ int main() {
 
 ### 2.2 STL 容器支持
 
-JsonStruct Registry 自动支持常用的 STL 容器类型：
+JsonStruct 自动支持常用的 STL 容器类型：
 
 ```cpp
 #include "jsonstruct_std.h"

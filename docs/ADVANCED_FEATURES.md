@@ -1,10 +1,10 @@
-# JsonStruct Registry - 高级功能与流式查询
+# JsonStruct - 高级功能与流式查询
 
 > 本文档合并了原 ADVANCED_FEATURES.md 和 STREAMING_QUERY.md 的内容，提供完整的高级功能指南。
 
 ## JSONPath 查询系统 (100% 完整实现)
 
-JsonStruct Registry提供完整的JSONPath查询语言支持，实现了100%的核心功能。
+JsonStruct 提供完整的JSONPath查询语言支持，实现了100%的核心功能。
 
 ### 核心查询方法
 

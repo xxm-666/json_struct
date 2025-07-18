@@ -1,10 +1,10 @@
 # 🚀 类型注册系统 - 5分钟快速开始
 
-> 学会使用JsonStruct Registry的类型注册系统，让C++对象序列化变得简单自动！
+> 学会使用JsonStruct 的类型注册系统，让C++对象序列化变得简单自动！
 
 ## 🎯 核心概念
 
-**JsonStruct Registry** 的核心思想很简单：
+**JsonStruct ** 的核心思想很简单：
 
 1. **一行宏** `JSON_FIELDS(...)` 完成类型注册
 2. **自动生成** `toJsonString()` 和 `fromJsonString()` 方法  

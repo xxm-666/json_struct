@@ -1,8 +1,8 @@
-# JsonStruct Registry - 性能优化指南
+# JsonStruct - 性能优化指南
 
 ## 性能概览
 
-JsonStruct Registry 专为高性能应用设计，提供以下性能特性：
+JsonStruct 专为高性能应用设计，提供以下性能特性：
 
 - **O(1) 对象键查找**: 使用 std::unordered_map 实现快速查找
 - **零拷贝移动语义**: 大对象操作的移动优化

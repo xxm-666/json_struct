@@ -1,4 +1,4 @@
-# JsonStruct Registry - C++17+ JSON序列化与JSONPath查询框架
+# JsonStruct - C++17+ JSON序列化与JSONPath查询框架
 
 > 现代C++17+JSON处理框架 - 提供类型注册、自动序列化、JSONPath查询和版本管理的完整解决方案
 
@@ -386,7 +386,7 @@ QString jsonStr = QString::fromStdString(settings.toJsonString(2));
 
 ## 🎯 使用场景
 
-**JsonStruct Registry适用于以下场景**:
+**JsonStruct 适用于以下场景**:
 
 ### 🏢 企业级应用
 - **配置管理**: 应用程序配置文件的自动序列化和反序列化
@@ -460,7 +460,7 @@ QString jsonStr = QString::fromStdString(settings.toJsonString(2));
 
 > ⚠️ **免责声明**: 以下对比基于公开文档和特性分析，不代表性能基准测试结果。
 
-| 特性 | JsonStruct Registry | nlohmann/json | RapidJSON | jsoncpp |
+| 特性 | JsonStruct | nlohmann/json | RapidJSON | jsoncpp |
 |------|--------------------|--------------|-----------|---------| 
 | **学习成本** | 低 (宏驱动) | 中等 (现代API) | 高 (底层API) | 中等 (传统API) |
 | **代码维护** | 自动序列化 | 手动适配器 | 手动序列化 | 手动序列化 |
@@ -473,7 +473,7 @@ QString jsonStr = QString::fromStdString(settings.toJsonString(2));
 | **生态成熟度** | 🆕 新项目 | ✅ 成熟 | ✅ 成熟 | ✅ 成熟 |
 | **社区支持** | 🆕 起步 | ✅ 活跃 | ✅ 活跃 | ✅ 稳定 |
 
-### 🎯 JsonStruct Registry的优势与不足
+### 🎯 JsonStruct 的优势与不足
 
 **✅ 优势**:
 - 简洁的API设计，`JSON_FIELDS()`一行搞定
@@ -520,7 +520,7 @@ public:
     }
 };
 
-// JsonStruct Registry只需要：
+// JsonStruct 只需要：
 struct User {
     std::string name;
     int age;
@@ -795,7 +795,7 @@ private:
 
 ### 🏆 致谢
 
-JsonStruct Registry的成功离不开以下项目和社区的支持：
+JsonStruct 的成功离不开以下项目和社区的支持：
 
 - **[nlohmann/json](https://github.com/nlohmann/json)** - 现代C++ JSON库的典范
 - **[Qt Project](https://www.qt.io/)** - 提供丰富的跨平台数据类型
@@ -807,7 +807,7 @@ JsonStruct Registry的成功离不开以下项目和社区的支持：
 ```
 MIT License
 
-Copyright (c) 2024 JsonStruct Registry Contributors
+Copyright (c) 2024 JsonStruct Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
