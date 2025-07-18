@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)
 project(json_struct LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -133,10 +133,6 @@ install(TARGETS json_struct
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
-
-# install(FILES ${CORE_HEADERS}
-#     DESTINATION include/jsonstruct
-# )
 
 install(FILES src/jsonstruct.h
     DESTINATION include/jsonstruct
