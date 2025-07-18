@@ -119,6 +119,36 @@ target_compile_features(test_json_query_generator PRIVATE cxx_std_17)
 add_executable(test_all_runner tests/test_all_runner.cpp)
 target_compile_features(test_all_runner PRIVATE cxx_std_17)
 
+
+# Test executable for spaced property names
+add_executable(test_spaced_properties tests/test_spaced_properties.cpp)
+target_link_libraries(test_spaced_properties PRIVATE test_framework json_struct)
+target_include_directories(test_spaced_properties PRIVATE test_framework json_struct)
+target_compile_features(test_spaced_properties PRIVATE cxx_std_17)
+
+# Comprehensive test for spaced properties
+add_executable(test_comprehensive_spaced tests/test_comprehensive_spaced.cpp)
+target_link_libraries(test_comprehensive_spaced PRIVATE test_framework json_struct)
+target_include_directories(test_comprehensive_spaced PRIVATE test_framework json_struct)
+target_compile_features(test_comprehensive_spaced PRIVATE cxx_std_17)
+
+# Debug filter test  
+add_executable(debug_filter tests/debug_filter.cpp)
+target_link_libraries(debug_filter PRIVATE test_framework json_struct)
+target_include_directories(debug_filter PRIVATE test_framework json_struct)
+target_compile_features(debug_filter PRIVATE cxx_std_17)
+
+# Version management test
+add_executable(test_version tests/test_version.cpp)
+target_link_libraries(test_version PRIVATE test_framework json_struct)
+target_include_directories(test_version PRIVATE test_framework json_struct)
+target_compile_features(test_version PRIVATE cxx_std_17)
+
+# Version information utility
+add_executable(version_info tests/version_info.cpp)
+target_link_libraries(version_info PRIVATE test_framework json_struct)
+target_include_directories(version_info PRIVATE test_framework json_struct)
+target_compile_features(version_info PRIVATE cxx_std_17)
 # 创建运行核心测试的目标
 add_custom_target(run_core_tests
     DEPENDS test_core_functionality test_json_auto test_enhanced_features 
@@ -136,8 +166,9 @@ add_custom_target(build_all_tests
             test_error_handling test_complex_nested_containers test_all_runner
             test_minimal_jsonvalue test_json_filter_basic test_json_path_basic
             test_json_path_mutable test_serialization_simple test_type_conversion_boundary
-            test_json_query_generator
-    COMMENT "Building all test executables"
+            test_json_query_generator test_version version_info debug_filter test_comprehensive_spaced
+            test_spaced_properties
+    COMMENT "Building all test executables" 
 )
 
 # 创建运行全部测试的目标

@@ -778,89 +778,107 @@ void JsonPath::evaluateFilter(const std::string& filter_expr,
 
 bool JsonPath::evaluateFilterCondition(const std::string& condition, const JsonValue& context) const {
     // Enhanced filter condition evaluation supporting JSONPath filter expressions
-    // Supports patterns like: @.property == value, @.property < value, @.property > value
+    // Supports patterns like: @.property == value, @['property name'] == value
     // Also supports: @.property != value, @.property <= value, @.property >= value
     
     // Handle whitespace around condition
     std::string trimmed_condition = condition;
     
-    // More robust regex pattern to handle various operators and value types
-    std::regex pattern(R"(@\.(\w+)\s*(==|!=|<=|>=|<|>)\s*([^)]+))");
-    std::smatch match;
+    // Pattern for bracket notation without quotes (already removed during tokenization): @[property name]
+    std::regex bracket_pattern(R"(@\[([^\]]+)\]\s*(==|!=|<=|>=|<|>)\s*([^)]+))");
+    std::smatch bracket_match;
     
-    if (std::regex_search(trimmed_condition, match, pattern)) {
-        std::string property = match[1].str();
-        std::string op = match[2].str();
-        std::string value_str = match[3].str();
-        
-        // Trim whitespace from value_str
-        value_str.erase(0, value_str.find_first_not_of(" \t"));
-        value_str.erase(value_str.find_last_not_of(" \t") + 1);
-        
-        // Remove quotes if present
-        if (value_str.length() >= 2) {
-            if ((value_str.front() == '"' && value_str.back() == '"') ||
-                (value_str.front() == '\'' && value_str.back() == '\'')) {
-                value_str = value_str.substr(1, value_str.length() - 2);
+    // Pattern for dot notation: @.property
+    std::regex dot_pattern(R"(@\.(\w+)\s*(==|!=|<=|>=|<|>)\s*([^)]+))");
+    std::smatch dot_match;
+    
+    std::string property;
+    std::string op;
+    std::string value_str;
+    
+    // Try bracket notation first
+    if (std::regex_search(trimmed_condition, bracket_match, bracket_pattern)) {
+        property = bracket_match[1].str();
+        op = bracket_match[2].str();
+        value_str = bracket_match[3].str();
+    }
+    // Then try dot notation
+    else if (std::regex_search(trimmed_condition, dot_match, dot_pattern)) {
+        property = dot_match[1].str();
+        op = dot_match[2].str();
+        value_str = dot_match[3].str();
+    }
+    else {
+        return false; // No matching pattern found
+    }
+    
+    // Trim whitespace from value_str
+    value_str.erase(0, value_str.find_first_not_of(" \t"));
+    value_str.erase(value_str.find_last_not_of(" \t") + 1);
+    
+    // Remove quotes if present
+    if (value_str.length() >= 2) {
+        if ((value_str.front() == '"' && value_str.back() == '"') ||
+            (value_str.front() == '\'' && value_str.back() == '\'')) {
+            value_str = value_str.substr(1, value_str.length() - 2);
+        }
+    }
+    
+    if (!context.isObject() || !context.contains(property)) {
+        return false;
+    }
+    
+    const auto& prop_value = context[property];
+    
+    // String comparison
+    if (prop_value.isString()) {
+        auto opt_str = prop_value.getString();
+        if (opt_str) {
+            std::string prop_str(*opt_str);
+            if (op == "==") return prop_str == value_str;
+            if (op == "!=") return prop_str != value_str;
+            if (op == "<") return prop_str < value_str;
+            if (op == ">") return prop_str > value_str;
+            if (op == "<=") return prop_str <= value_str;
+            if (op == ">=") return prop_str >= value_str;
+        }
+    }
+    // Number comparison
+    else if (prop_value.isNumber()) {
+        auto opt_num = prop_value.getNumber();
+        if (opt_num) {
+            try {
+                double filter_value = std::stod(value_str);
+                double prop_double = *opt_num;
+                
+                if (op == "==") return std::abs(prop_double - filter_value) < 1e-9;
+                if (op == "!=") return std::abs(prop_double - filter_value) >= 1e-9;
+                if (op == "<") return prop_double < filter_value;
+                if (op == ">") return prop_double > filter_value;
+                if (op == "<=") return prop_double <= filter_value;
+                if (op == ">=") return prop_double >= filter_value;
+            } catch (const std::exception&) {
+                return false;
             }
         }
-        
-        if (!context.isObject() || !context.contains(property)) {
-            return false;
+    }
+    // Boolean comparison
+    else if (prop_value.isBool()) {
+        if (value_str == "true" || value_str == "false") {
+            bool filter_bool = (value_str == "true");
+            bool prop_bool = prop_value.toBool();
+            if (op == "==") return prop_bool == filter_bool;
+            if (op == "!=") return prop_bool != filter_bool;
         }
-        
-        const auto& prop_value = context[property];
-        
-        // String comparison
-        if (prop_value.isString()) {
-            auto opt_str = prop_value.getString();
-            if (opt_str) {
-                std::string prop_str(*opt_str);
-                if (op == "==") return prop_str == value_str;
-                if (op == "!=") return prop_str != value_str;
-                if (op == "<") return prop_str < value_str;
-                if (op == ">") return prop_str > value_str;
-                if (op == "<=") return prop_str <= value_str;
-                if (op == ">=") return prop_str >= value_str;
-            }
-        }
-        // Number comparison
-        else if (prop_value.isNumber()) {
-            auto opt_num = prop_value.getNumber();
-            if (opt_num) {
-                try {
-                    double filter_value = std::stod(value_str);
-                    double prop_double = *opt_num;
-                    
-                    if (op == "==") return std::abs(prop_double - filter_value) < 1e-9;
-                    if (op == "!=") return std::abs(prop_double - filter_value) >= 1e-9;
-                    if (op == "<") return prop_double < filter_value;
-                    if (op == ">") return prop_double > filter_value;
-                    if (op == "<=") return prop_double <= filter_value;
-                    if (op == ">=") return prop_double >= filter_value;
-                } catch (const std::exception&) {
-                    return false;
-                }
-            }
-        }
-        // Boolean comparison
-        else if (prop_value.isBool()) {
-            if (value_str == "true" || value_str == "false") {
-                bool filter_bool = (value_str == "true");
-                bool prop_bool = prop_value.toBool();
-                if (op == "==") return prop_bool == filter_bool;
-                if (op == "!=") return prop_bool != filter_bool;
-            }
-        }
-        // Null comparison
-        else if (prop_value.isNull()) {
-            if (value_str == "null") {
-                if (op == "==") return true;
-                if (op == "!=") return false;
-            } else {
-                if (op == "==") return false;
-                if (op == "!=") return true;
-            }
+    }
+    // Null comparison
+    else if (prop_value.isNull()) {
+        if (value_str == "null") {
+            if (op == "==") return true;
+            if (op == "!=") return false;
+        } else {
+            if (op == "==") return false;
+            if (op == "!=") return true;
         }
     }
     

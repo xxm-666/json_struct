@@ -4,8 +4,60 @@ project(json_struct LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 定义项目版本号
-set(PROJECT_VERSION 1.0.0)
+# ===== 版本管理 =====
+# 定义项目版本号 (语义化版本控制: MAJOR.MINOR.PATCH)
+set(JSON_STRUCT_VERSION_MAJOR 1)
+set(JSON_STRUCT_VERSION_MINOR 2)
+set(JSON_STRUCT_VERSION_PATCH 0)
+set(JSON_STRUCT_VERSION_SUFFIX "dev")  # 空字符串表示正式版本
+
+# 计算完整版本号
+if(JSON_STRUCT_VERSION_SUFFIX STREQUAL "")
+    set(PROJECT_VERSION "${JSON_STRUCT_VERSION_MAJOR}.${JSON_STRUCT_VERSION_MINOR}.${JSON_STRUCT_VERSION_PATCH}")
+else()
+    set(PROJECT_VERSION "${JSON_STRUCT_VERSION_MAJOR}.${JSON_STRUCT_VERSION_MINOR}.${JSON_STRUCT_VERSION_PATCH}-${JSON_STRUCT_VERSION_SUFFIX}")
+endif()
+
+# 获取构建时间
+string(TIMESTAMP JSON_STRUCT_BUILD_DATE "%Y-%m-%d %H:%M:%S UTC" UTC)
+
+# 获取Git信息（如果可用）
+find_package(Git QUIET)
+if(GIT_FOUND)
+    # 获取当前提交哈希
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE JSON_STRUCT_GIT_COMMIT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    
+    # 获取当前分支
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE JSON_STRUCT_GIT_BRANCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+else()
+    set(JSON_STRUCT_GIT_COMMIT "unknown")
+    set(JSON_STRUCT_GIT_BRANCH "unknown")
+endif()
+
+# 生成版本头文件
+configure_file(
+    "${CMAKE_SOURCE_DIR}/src/version.h.in"
+    "${CMAKE_SOURCE_DIR}/src/version.h"
+    @ONLY
+)
+
+# 显示版本信息
+message(STATUS "JsonStruct Version: ${PROJECT_VERSION}")
+message(STATUS "Build Date: ${JSON_STRUCT_BUILD_DATE}")
+message(STATUS "Git Commit: ${JSON_STRUCT_GIT_COMMIT}")
+message(STATUS "Git Branch: ${JSON_STRUCT_GIT_BRANCH}")
 
 # Include directories
 include_directories(src)
@@ -20,6 +72,7 @@ set(CORE_SOURCES
     src/json_engine/json_query_generator.cpp
     src/json_engine/json_path.cpp
     src/json_engine/json_filter.cpp
+    src/version.cpp
     src/qt_types/qt_ultimate_registry.cpp
     src/qt_types/qt_common.cpp
 )
