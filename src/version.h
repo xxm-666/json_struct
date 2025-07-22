@@ -19,9 +19,9 @@ public:
     static constexpr int MINOR = 2;
     static constexpr int PATCH = 0;
     static constexpr const char* SUFFIX = "dev";
-    static constexpr const char* BUILD_DATE = "2025-07-22 06:21:06 UTC";
-    static constexpr const char* GIT_COMMIT = "2b8f25d";
-    static constexpr const char* GIT_BRANCH = "dev-20250718";
+    static constexpr const char* BUILD_DATE = "2025-07-22 06:30:38 UTC";
+    static constexpr const char* GIT_COMMIT = "429cafd";
+    static constexpr const char* GIT_BRANCH = "dev";
 
     /**
      * @brief 获取完整版本字符串

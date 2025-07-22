@@ -244,7 +244,7 @@ public:
      * - Small result sets (≤1000): use fast path optimization
      * - Large result sets (>1000): use true streaming processing
      */
-    LazyQueryGenerator queryGenerator(const JsonValue& jsonValue, const std::string& expression, size_t maxResults = 50) const;
+    LazyQueryGenerator queryGenerator(const JsonValue& jsonValue, const std::string& expression, size_t maxResults = 0) const;
 
     /**
      * @brief Lazy query generator based on filter function
