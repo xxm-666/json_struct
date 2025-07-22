@@ -18,6 +18,12 @@ void JsonQueryGenerator::reset() {
     totalGenerated_ = 0;
     resultsLoaded_ = false;
     cachedResults_.clear();
+    
+    // 创建真正的懒加载生成器
+    static JsonFilter defaultFilter = JsonFilter::createDefault();
+    lazyGen_ = std::make_unique<JsonFilter::LazyQueryGenerator>(
+        defaultFilter.queryGenerator(*root_, expression_)
+    );
 }
 
 void JsonQueryGenerator::terminate() {
@@ -28,19 +34,12 @@ bool JsonQueryGenerator::hasMore() const {
     if (state_ == State::Completed || state_ == State::Terminated) {
         return false;
     }
-    
     if (options_.maxResults > 0 && totalGenerated_ >= options_.maxResults) {
         return false;
     }
     
-    // Load results if not already loaded
-    if (!resultsLoaded_) {
-        static JsonFilter defaultFilter = JsonFilter::createDefault();
-        cachedResults_ = defaultFilter.selectAll(*root_, expression_);
-        resultsLoaded_ = true;
-    }
-    
-    return currentIndex_ < cachedResults_.size();
+    // 使用懒加载生成器检查是否还有更多结果
+    return lazyGen_ && lazyGen_->hasNext();
 }
 
 std::optional<std::pair<const JsonValue*, std::string>> JsonQueryGenerator::getNext() {
@@ -48,23 +47,19 @@ std::optional<std::pair<const JsonValue*, std::string>> JsonQueryGenerator::getN
         state_ = State::Completed;
         return std::nullopt;
     }
-    
     if (state_ == State::Ready) {
         state_ = State::Running;
     }
     
-    auto result = cachedResults_[currentIndex_];
-    ++currentIndex_;
+    // 从懒加载生成器获取下一个结果
+    auto queryResult = lazyGen_->next();
     ++totalGenerated_;
-    
-    // Generate path (simplified - in real implementation, path should come from JsonFilter)
-    std::string path = "$[" + std::to_string(currentIndex_ - 1) + "]";
     
     if (options_.stopOnFirstMatch && totalGenerated_ >= 1) {
         state_ = State::Completed;
     }
     
-    return std::make_pair(result, path);
+    return std::make_pair(queryResult.value, queryResult.path);
 }
 
 JsonQueryGenerator::Iterator JsonQueryGenerator::begin() {
@@ -90,10 +85,8 @@ std::vector<std::pair<const JsonValue*, std::string>> JsonQueryGenerator::takeBa
     if (batchSize == 0) {
         batchSize = options_.batchSize;
     }
-    
     std::vector<std::pair<const JsonValue*, std::string>> batch;
     batch.reserve(batchSize);
-    
     for (size_t i = 0; i < batchSize && hasMore(); ++i) {
         auto next = getNext();
         if (next) {
@@ -102,7 +95,6 @@ std::vector<std::pair<const JsonValue*, std::string>> JsonQueryGenerator::takeBa
             break;
         }
     }
-    
     return batch;
 }
 
@@ -133,7 +125,6 @@ JsonQueryGenerator::Iterator& JsonQueryGenerator::Iterator::operator++() {
     if (!generator_) {
         return *this;
     }
-    
     current_ = generator_->getNext();
     if (!current_.has_value()) {
         generator_ = nullptr;
@@ -141,7 +132,6 @@ JsonQueryGenerator::Iterator& JsonQueryGenerator::Iterator::operator++() {
     } else {
         ++index_;
     }
-    
     return *this;
 }
 

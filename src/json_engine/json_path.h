@@ -333,6 +333,26 @@ public:
      * @throws std::invalid_argument if expression is invalid
      */
     static JsonPath parse(const std::string& expression);
+    
+    // 懒加载支持API
+    /**
+     * @brief Get parsed nodes for lazy evaluation
+     * @return Reference to the parsed path nodes
+     */
+    const std::vector<PathNode>& getNodes() const { return nodes_; }
+    
+    /**
+     * @brief Evaluate a single node against an input value (for lazy evaluation)
+     * @param node The path node to evaluate
+     * @param input Input value to process
+     * @param input_path Path of the input value
+     * @param outputs Vector to store output values
+     * @return True if any results were found
+     */
+    bool evaluateSingleNode(const PathNode& node,
+                           const JsonStruct::JsonValue* input, 
+                           const std::string& input_path,
+                           std::vector<std::pair<const JsonStruct::JsonValue*, std::string>>& outputs) const;
 };
 
 /**

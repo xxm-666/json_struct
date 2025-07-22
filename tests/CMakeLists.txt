@@ -79,13 +79,6 @@ add_executable(test_complex_nested_containers tests/test_complex_nested_containe
 target_link_libraries(test_complex_nested_containers PRIVATE test_framework json_struct)
 target_compile_features(test_complex_nested_containers PRIVATE cxx_std_17)
 
-# 新增测试文件
-
-# JSON Filter基础测试
-add_executable(test_json_filter_basic tests/test_json_filter_basic.cpp)
-target_link_libraries(test_json_filter_basic PRIVATE test_framework json_struct)
-target_compile_features(test_json_filter_basic PRIVATE cxx_std_17)
-
 # JSON Path可修改操作测试
 add_executable(test_json_path_mutable tests/test_json_path_mutable.cpp)
 target_link_libraries(test_json_path_mutable PRIVATE test_framework json_struct)
@@ -114,6 +107,11 @@ target_compile_features(test_minimal_jsonvalue PRIVATE cxx_std_17)
 add_executable(test_json_query_generator tests/test_json_query_generator.cpp)
 target_link_libraries(test_json_query_generator PRIVATE test_framework json_struct)
 target_compile_features(test_json_query_generator PRIVATE cxx_std_17)
+
+# 全面的惰性加载测试
+add_executable(test_lazy_comprehensive tests/test_lazy_comprehensive.cpp)
+target_link_libraries(test_lazy_comprehensive PRIVATE test_framework json_struct)
+target_compile_features(test_lazy_comprehensive PRIVATE cxx_std_17)
 
 # 全自动测试运行器
 add_executable(test_all_runner tests/test_all_runner.cpp)
@@ -149,6 +147,12 @@ target_link_libraries(version_info PRIVATE test_framework json_struct)
 target_include_directories(version_info PRIVATE test_framework json_struct)
 target_compile_features(version_info PRIVATE cxx_std_17)
 
+# === Performance test ===
+add_executable(test_lazy_performance tests/test_lazy_performance.cpp)
+target_link_libraries(test_lazy_performance json_struct)
+target_include_directories(test_lazy_performance PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_features(test_lazy_performance PRIVATE cxx_std_17)
+
 # 创建运行核心测试的目标
 add_custom_target(run_core_tests
     DEPENDS test_core_functionality test_json_auto test_enhanced_features 
@@ -167,7 +171,7 @@ add_custom_target(build_all_tests
             test_minimal_jsonvalue test_json_filter_basic test_json_path_basic
             test_json_path_mutable test_serialization_simple test_type_conversion_boundary
             test_json_query_generator test_version version_info debug_filter test_comprehensive_spaced
-            test_spaced_properties
+            test_spaced_properties test_scalability_performance
     COMMENT "Building all core test executables" 
 )
 

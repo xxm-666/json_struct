@@ -1106,3 +1106,34 @@ selectAllMutable(JsonValue& root, const std::string& path_expression) {
 }
 
 } // namespace jsonvalue_jsonpath
+
+// 懒加载支持方法的实现
+namespace jsonpath {
+
+bool JsonPath::evaluateSingleNode(const PathNode& node,
+                                 const JsonStruct::JsonValue* input, 
+                                 const std::string& input_path,
+                                 std::vector<std::pair<const JsonStruct::JsonValue*, std::string>>& outputs) const {
+    // 将单个输入转换为向量格式以复用现有方法
+    std::vector<std::reference_wrapper<const JsonStruct::JsonValue>> inputs;
+    std::vector<std::string> input_paths;
+    inputs.emplace_back(std::cref(*input));
+    input_paths.emplace_back(input_path);
+    
+    // 输出向量
+    std::vector<std::reference_wrapper<const JsonStruct::JsonValue>> raw_outputs;
+    std::vector<std::string> output_paths;
+    
+    // 调用现有的节点评估方法
+    evaluateNode(node, inputs, input_paths, raw_outputs, output_paths);
+    
+    // 转换输出格式
+    outputs.clear();
+    for (size_t i = 0; i < raw_outputs.size(); ++i) {
+        outputs.emplace_back(&raw_outputs[i].get(), output_paths[i]);
+    }
+    
+    return !outputs.empty();
+}
+
+} // namespace jsonpath
