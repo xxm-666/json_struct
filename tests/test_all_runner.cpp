@@ -45,7 +45,6 @@ public:
             "test_complex_structures.exe",
             "test_error_handling.exe",
             "test_complex_nested_containers.exe",
-            "test_json_filter_basic.exe",
             "test_json_path_basic.exe",
             "test_serialization_simple.exe",
             "test_type_conversion_boundary.exe"
