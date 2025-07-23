@@ -242,6 +242,9 @@ public:
         void initialize();
         void advance();
         
+        // Helper method for FilterFunction mode
+        void expandFrameChildren(const Frame& frame);
+        
         // Node processing methods (adapted from LazyJsonPathIterator)
         bool processNode(Frame& frame, const jsonpath::PathNode& node);
         bool processProperty(Frame& frame, const std::string& property);
@@ -257,10 +260,6 @@ public:
      * @param expression JSONPath expression
      * @param maxResults Maximum number of results, used for intelligent optimization strategy selection
      * @return High-performance lazy query generator
-     *
-     * This is the recommended lazy query interface, which automatically selects the optimal strategy:
-     * - Small result sets (≤1000): use fast path optimization
-     * - Large result sets (>1000): use true streaming processing
      */
     LazyQueryGenerator queryGenerator(const JsonValue& jsonValue, const std::string& expression, size_t maxResults = 0) const;
 
@@ -274,13 +273,6 @@ public:
 
 private:
     JsonFilterOptions options_;
-    
-    // Internal implementation functions
-    std::vector<QueryResult> queryWithFilterFunction(const JsonValue& jsonValue, const FilterFunction& filter) const;
-    std::vector<QueryResult> queryWithJsonPath(const JsonValue& jsonValue, const std::string& expression) const;
-    
-    void collectMatches(const JsonValue& value, const std::string& currentPath, size_t depth,
-                       const FilterFunction& filter, std::vector<QueryResult>& results) const;
 };
 
 // === Convenience functions ===
