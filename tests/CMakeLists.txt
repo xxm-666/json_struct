@@ -9,52 +9,52 @@ add_library(test_framework
 target_include_directories(test_framework PUBLIC test_framework)
 target_compile_features(test_framework PUBLIC cxx_std_17)
 
-# 核心功能测试 (原迁移文件)
+# 核心功能测试
 add_executable(test_core_functionality tests/test_core_functionality.cpp)
 target_link_libraries(test_core_functionality PRIVATE test_framework json_struct)
 target_compile_features(test_core_functionality PRIVATE cxx_std_17)
 
-# JSON自动化测试 (原迁移文件)
+# JSON自动化测试
 add_executable(test_json_auto tests/test_json_auto.cpp)
 target_link_libraries(test_json_auto PRIVATE test_framework json_struct)
 target_compile_features(test_json_auto PRIVATE cxx_std_17)
 
-# Qt类型测试 (原迁移文件)
+# Qt类型测试
 add_executable(test_qt_types_new tests/test_qt_types_new.cpp)
 target_link_libraries(test_qt_types_new PRIVATE test_framework json_struct)
 target_compile_features(test_qt_types_new PRIVATE cxx_std_17)
 
-# 增强功能测试 (原迁移文件)
+# 增强功能测试
 add_executable(test_enhanced_features tests/test_enhanced_features.cpp)
 target_link_libraries(test_enhanced_features PRIVATE test_framework json_struct)
 target_compile_features(test_enhanced_features PRIVATE cxx_std_17)
 
-# 自定义类型测试 (原迁移文件)
+# 自定义类型测试
 add_executable(test_custom_types tests/test_custom_types.cpp)
 target_link_libraries(test_custom_types PRIVATE test_framework json_struct)
 target_compile_features(test_custom_types PRIVATE cxx_std_17)
 
-# JSON解析测试 (原迁移文件)
+# JSON解析测试
 add_executable(test_json_parsing tests/test_json_parsing.cpp)
 target_link_libraries(test_json_parsing PRIVATE test_framework json_struct)
 target_compile_features(test_json_parsing PRIVATE cxx_std_17)
 
-# 错误恢复测试 (原迁移文件)
+# 错误恢复测试
 add_executable(test_error_recovery tests/test_error_recovery.cpp)
 target_link_libraries(test_error_recovery PRIVATE test_framework json_struct)
 target_compile_features(test_error_recovery PRIVATE cxx_std_17)
 
-# 性能结构体测试 (原迁移文件)
+# 性能结构体测试
 add_executable(test_performance_struct tests/test_performance_struct.cpp)
 target_link_libraries(test_performance_struct PRIVATE test_framework json_struct)
 target_compile_features(test_performance_struct PRIVATE cxx_std_17)
 
-# 特殊数字测试 (原迁移文件)
+# 特殊数字测试
 add_executable(test_special_numbers tests/test_special_numbers.cpp)
 target_link_libraries(test_special_numbers PRIVATE test_framework json_struct)
 target_compile_features(test_special_numbers PRIVATE cxx_std_17)
 
-# JSON指针测试 (原迁移文件)
+# JSON指针测试
 add_executable(test_json_pointer tests/test_json_pointer.cpp)
 target_link_libraries(test_json_pointer PRIVATE test_framework json_struct)
 target_compile_features(test_json_pointer PRIVATE cxx_std_17)
@@ -108,10 +108,20 @@ add_executable(test_json_query_generator tests/test_json_query_generator.cpp)
 target_link_libraries(test_json_query_generator PRIVATE test_framework json_struct)
 target_compile_features(test_json_query_generator PRIVATE cxx_std_17)
 
-# 全面的惰性加载测试
-add_executable(test_lazy_comprehensive tests/test_lazy_comprehensive.cpp)
-target_link_libraries(test_lazy_comprehensive PRIVATE test_framework json_struct)
-target_compile_features(test_lazy_comprehensive PRIVATE cxx_std_17)
+# 新的综合惰性查询测试（使用test_framework）
+add_executable(test_lazy_query_comprehensive tests/test_lazy_query_comprehensive.cpp)
+target_link_libraries(test_lazy_query_comprehensive PRIVATE test_framework json_struct)
+target_compile_features(test_lazy_query_comprehensive PRIVATE cxx_std_17)
+
+# 新的性能测试（使用test_framework）
+add_executable(test_lazy_performance_comprehensive tests/test_lazy_performance_comprehensive.cpp)
+target_link_libraries(test_lazy_performance_comprehensive PRIVATE test_framework json_struct)
+target_compile_features(test_lazy_performance_comprehensive PRIVATE cxx_std_17)
+
+# 惰性查询测试套件运行器
+add_executable(test_lazy_suite_runner tests/test_lazy_suite_runner.cpp)
+target_link_libraries(test_lazy_suite_runner PRIVATE test_framework json_struct)
+target_compile_features(test_lazy_suite_runner PRIVATE cxx_std_17)
 
 # 全自动测试运行器
 add_executable(test_all_runner tests/test_all_runner.cpp)
@@ -149,9 +159,14 @@ target_compile_features(version_info PRIVATE cxx_std_17)
 
 # === Performance test ===
 add_executable(test_lazy_performance tests/test_lazy_performance.cpp)
-target_link_libraries(test_lazy_performance json_struct)
+target_link_libraries(test_lazy_performance PRIVATE test_framework json_struct)
 target_include_directories(test_lazy_performance PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(test_lazy_performance PRIVATE cxx_std_17)
+
+add_executable(test_large_lazy_performance tests/test_large_lazy_performance.cpp)
+target_link_libraries(test_large_lazy_performance PRIVATE test_framework json_struct)
+target_include_directories(test_large_lazy_performance PRIVATE test_framework json_struct)
+target_compile_features(test_large_lazy_performance PRIVATE cxx_std_17)
 
 # 创建运行核心测试的目标
 add_custom_target(run_core_tests

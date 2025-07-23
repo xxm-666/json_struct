@@ -188,16 +188,6 @@ void JsonPath::parseExpression(const std::vector<Token>& tokens) {
     while (pos < tokens.size() && tokens[pos].type != TokenType::END) {
         nodes_.push_back(parseNode(tokens, pos));
     }
-    
-    // This check ensures that recursive descent '..' is followed by a valid node
-    for (size_t i = 0; i < nodes_.size(); ++i) {
-        if (nodes_[i].type == NodeType::RECURSIVE) {
-            // Recursive descent operator must be followed by another node OR have a target property
-            if (i == nodes_.size() - 1 && nodes_[i].property.empty()) {
-                throw JsonPathException("Recursive descent operator '..' must be followed by a property or expression");
-            }
-        }
-    }
 }
 
 PathNode JsonPath::parseNode(const std::vector<Token>& tokens, size_t& pos) {
@@ -345,8 +335,7 @@ PathNode JsonPath::parseNode(const std::vector<Token>& tokens, size_t& pos) {
                 ++pos;
                 return node;
             }
-            return PathNode(NodeType::RECURSIVE);
-            
+            return PathNode(NodeType::RECURSIVE); // Just recursive descent
         default:
             throw JsonPathException("Unexpected token: " + token.value, token.position);
     }

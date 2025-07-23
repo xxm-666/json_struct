@@ -77,7 +77,7 @@ public:
                     buffer[bytesRead] = '\0';
                     result += buffer;
                 }
-
+                std::cout << "result: " << result << std::endl;
                 WaitForSingleObject(pi.hProcess, INFINITE);
                 CloseHandle(pi.hProcess);
                 CloseHandle(pi.hThread);

@@ -4,6 +4,7 @@
 #include "json_path.h"
 #include <functional>
 #include <vector>
+#include <stack>
 #include <string>
 #include <optional>
 #include <memory>
@@ -28,6 +29,7 @@ struct QueryResult {
     std::string path;
     size_t depth;
 
+    QueryResult() = default;
     QueryResult(const JsonValue* val, const std::string& p, size_t d)
         : value(val), path(p), depth(d) {}
 };
@@ -153,14 +155,22 @@ public:
     /**
      * @brief Lazy query generator class
      *
-     * This class implements true lazy query, reusing the json_path module to avoid code duplication.
-     * Executes JSONPath nodes on demand, supports early termination, and significantly improves performance and memory efficiency.
+     * This class implements true lazy evaluation for JSONPath queries, based on the proven implementation
+     * from LazyJsonPathIterator. It provides on-demand calculation with full state preservation,
+     * achieving significant performance improvements for partial result scenarios.
+     *
+     * Features:
+     * - True lazy evaluation: calculates one result per next() call
+     * - Complete state preservation: supports pause/resume at any point  
+     * - Memory efficient: no pre-loading of results
+     * - Early termination: stops computation when iteration stops
+     * - Reuses json_path module for parsing and validation
      *
      * @example
      * auto generator = filter.queryGenerator(json, "$.store.book[*].title");
      * while (generator.hasNext()) {
      *     auto result = generator.next();
-     *     if (someCondition) break; // Early termination
+     *     if (someCondition) break; // Early termination saves computation
      * }
      */
 public:
@@ -178,36 +188,36 @@ public:
         // Check if there is a next item
         bool hasNext() const;
 
-        // Get the next result with streaming optimization
+        // Get the next result with true lazy evaluation
         QueryResult next();
 
         // Get multiple results at once for better performance
         std::vector<QueryResult> nextBatch(size_t maxCount = 10);
 
     private:
-        struct StackFrame {
+        // Enhanced frame structure for stateful lazy evaluation
+        struct Frame {
             const JsonValue* value;
             std::string path;
-            size_t depth;
-        };
-
-        // True incremental lazy state for JSONPath evaluation
-        struct IncrementalLazyState {
-            std::unique_ptr<jsonpath::JsonPath> jsonPath;
-            std::vector<jsonpath::PathNode> nodes;
-            size_t currentNodeIndex = 0;
+            size_t nodeIndex = 0;
             
-            // Current candidates being processed through the pipeline
-            std::vector<std::pair<const JsonValue*, std::string>> currentCandidates;
-            // Buffer for the next batch of candidates
-            std::vector<std::pair<const JsonValue*, std::string>> nextCandidates;
+            // Recursive descent state management
+            enum class RecursiveState { None, SearchingSelf, SearchingChildren };
+            RecursiveState recursiveState = RecursiveState::None;
+            std::string recursiveProperty;
             
-            // Results that are ready to be returned
-            std::vector<std::pair<const JsonValue*, std::string>> readyResults;
-            size_t readyResultIndex = 0;
+            // Children storage for recursive processing (consistent with json_lazy_query.h)
+            std::vector<std::pair<std::string, const JsonValue*>> children;
             
-            bool finished = false;
-            bool initialized = false;
+            // Optimized child iteration state (iterator-based)
+            size_t childIndex = 0;
+            
+            // Array iteration state (for slice operations)
+            size_t arrayIndex = 0;
+            size_t arraySize = 0;
+            
+            Frame(const JsonValue* v, const std::string& p, size_t ni) 
+                : value(v), path(p), nodeIndex(ni) {}
         };
 
         const JsonFilter* filter_;
@@ -217,20 +227,28 @@ public:
         bool useFilterFunc_ = false;
         bool initialized_ = false;
         
+        // JSONPath components (reusing json_path module)
+        std::unique_ptr<jsonpath::JsonPath> jsonPath_;
+        std::vector<jsonpath::PathNode> nodes_;
+        
+        // Lazy evaluation state
+        std::stack<Frame> stack_;
+        std::optional<QueryResult> current_;
+        
         // Optimization hints
         size_t maxResults_ = 0;  // 0 means unlimited
         size_t resultCount_ = 0; // Current result count
-        bool optimizedMode_ = false;
-        
-        std::vector<StackFrame> stack_;
-        std::optional<QueryResult> current_;
-        
-        // For true incremental lazy JSONPath evaluation
-        std::unique_ptr<IncrementalLazyState> incrementalLazyState_;
 
-        void initializeJsonPath();
+        void initialize();
         void advance();
-        void advanceIncrementalLazy();
+        
+        // Node processing methods (adapted from LazyJsonPathIterator)
+        bool processNode(Frame& frame, const jsonpath::PathNode& node);
+        bool processProperty(Frame& frame, const std::string& property);
+        bool processIndex(Frame& frame, int index);
+        bool processSlice(Frame& frame, int start, int end);
+        bool processWildcard(Frame& frame);
+        bool processRecursive(Frame& frame, const std::string& property);
     };
     
     /**

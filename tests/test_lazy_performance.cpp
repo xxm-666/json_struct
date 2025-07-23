@@ -1,85 +1,231 @@
-#include "json_engine/json_query_generator.h"
-#include "json_engine/json_filter.h"
-#include "json_engine/json_value.h"
+#include "../test_framework/test_framework.h"
+#include "../src/json_engine/json_filter.h"
+#include "../src/json_engine/json_value.h"
 #include <chrono>
-#include <iostream>
+#include <iomanip>
+#include <vector>
+#include <string>
 
 using namespace JsonStruct;
+using namespace TestFramework;
 
-int main() {
-    // Create a large test dataset
+// Helper class for performance measurement
+class PerformanceTimer {
+public:
+    void start() {
+        start_time = std::chrono::high_resolution_clock::now();
+    }
+    
+    long long end() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        return std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+    }
+    
+private:
+    std::chrono::high_resolution_clock::time_point start_time;
+};
+
+// Generate large test dataset
+JsonValue generateLargeDataset(size_t size) {
     JsonValue::ArrayType largeArray;
-    for (int i = 0; i < 10000; ++i) {
+    for (size_t i = 0; i < size; ++i) {
         JsonValue::ObjectType obj;
-        obj["id"] = JsonValue(i);
-        obj["name"] = JsonValue(std::string("item_" + std::to_string(i)));
-        obj["value"] = JsonValue(i * 10);
+        obj["id"] = JsonValue(static_cast<long long>(i));
+        obj["name"] = JsonValue("item_" + std::to_string(i));
+        obj["value"] = JsonValue(static_cast<long long>(i * 10));
+        obj["category"] = JsonValue(i % 5 == 0 ? "special" : "normal");
         largeArray.push_back(JsonValue(std::move(obj)));
     }
-    JsonValue largeData(std::move(largeArray));
-    
-    std::cout << "=== Performance Comparison Test ===" << std::endl;
-    std::cout << "Dataset size: 10,000 objects" << std::endl;
-    
-    // Test 1: Use traditional JsonFilter.query() to query all results at once
-    std::cout << "\n1. Traditional method (query all results at once):" << std::endl;
-    auto start1 = std::chrono::high_resolution_clock::now();
-    
+    return JsonValue(std::move(largeArray));
+}
+
+TEST(TraditionalQueryAllResults) {
     JsonFilter filter = JsonFilter::createDefault();
-    auto allResults = filter.query(largeData, "$[*].name");
+    JsonValue data = generateLargeDataset(10000);
     
-    auto end1 = std::chrono::high_resolution_clock::now();
-    auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - start1);
+    PerformanceTimer timer;
+    timer.start();
+    auto allResults = filter.query(data, "$[*].name");
+    long long duration = timer.end();
     
-    std::cout << "Query time: " << duration1.count() << " microseconds" << std::endl;
-    std::cout << "Number of results: " << allResults.size() << std::endl;
+    ASSERT_EQ(10000, allResults.size());
+    std::cout << "Traditional query all results: " << duration << " microseconds" << std::endl;
     
-    // Test 2: Use lazy loading to get only the first 10 results
-    std::cout << "\n2. Lazy loading method (retrieve only the first 10 results):" << std::endl;
-    auto start2 = std::chrono::high_resolution_clock::now();
+    // Verify first few results
+    ASSERT_EQ("item_0", allResults[0].value->toString());
+    ASSERT_EQ("item_1", allResults[1].value->toString());
+    ASSERT_EQ("item_9999", allResults[9999].value->toString());
+}
+
+TEST(LazyQueryFirst10Results) {
+    JsonFilter filter = JsonFilter::createDefault();
+    JsonValue data = generateLargeDataset(10000);
     
-    JsonQueryGenerator::GeneratorOptions options;
-    options.maxResults = 10;
-    auto generator = JsonQueryGenerator(largeData, "$[*].name", options);
+    PerformanceTimer timer;
+    timer.start();
+    auto generator = filter.queryGenerator(data, "$[*].name", 10);
     
-    int count = 0;
-    for (auto it = generator.begin(); it != generator.end(); ++it) {
-        count++;
-        if (count >= 10) break;
+    std::vector<QueryResult> lazyResults;
+    while (generator.hasNext()) {
+        lazyResults.push_back(generator.next());
     }
     
-    auto end2 = std::chrono::high_resolution_clock::now();
-    auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(end2 - start2);
+    long long duration = timer.end();
     
-    std::cout << "Query time: " << duration2.count() << " microseconds" << std::endl;
-    std::cout << "Number of results: " << count << std::endl;
+    ASSERT_EQ(10, lazyResults.size());
+    std::cout << "Lazy query first 10 results: " << duration << " microseconds" << std::endl;
     
-    // Test 3: Lazy loading but retrieve all results (compare with traditional method)
-    std::cout << "\n3. Lazy loading method (retrieve all results):" << std::endl;
-    auto start3 = std::chrono::high_resolution_clock::now();
+    // Verify results
+    ASSERT_EQ("item_0", lazyResults[0].value->toString());
+    ASSERT_EQ("item_9", lazyResults[9].value->toString());
+}
+
+TEST(LazyQueryAllResults) {
+    JsonFilter filter = JsonFilter::createDefault();
+    JsonValue data = generateLargeDataset(10000);
     
-    auto generator2 = JsonQueryGenerator(largeData, "$[*].name");
-    count = 0;
-    for (auto it = generator2.begin(); it != generator2.end(); ++it) {
-        count++;
+    PerformanceTimer timer;
+    timer.start();
+    auto generator = filter.queryGenerator(data, "$[*].name");
+    
+    std::vector<QueryResult> lazyResults;
+    while (generator.hasNext()) {
+        lazyResults.push_back(generator.next());
     }
     
-    auto end3 = std::chrono::high_resolution_clock::now();
-    auto duration3 = std::chrono::duration_cast<std::chrono::microseconds>(end3 - start3);
+    long long duration = timer.end();
     
-    std::cout << "Query time: " << duration3.count() << " microseconds" << std::endl;
-    std::cout << "Number of results: " << count << std::endl;
+    ASSERT_EQ(10000, lazyResults.size());
+    std::cout << "Lazy query all results: " << duration << " microseconds" << std::endl;
     
-    // Performance improvement calculation
-    std::cout << "\n=== Performance Analysis ===" << std::endl;
-    if (duration1.count() > 0) {
-        double improvement = (double)(duration1.count() - duration2.count()) / duration1.count() * 100;
-        std::cout << "Performance improvement of lazy loading (first 10) compared to full query: " << improvement << "%" << std::endl;
+    // Verify results
+    ASSERT_EQ("item_0", lazyResults[0].value->toString());
+    ASSERT_EQ("item_9999", lazyResults[9999].value->toString());
+}
+
+TEST(PerformanceComparisonAnalysis) {
+    JsonFilter filter = JsonFilter::createDefault();
+    JsonValue data = generateLargeDataset(10000);
+    
+    PerformanceTimer timer;
+    
+    // Traditional method
+    timer.start();
+    auto traditionalResults = filter.query(data, "$[*].name");
+    long long traditionalTime = timer.end();
+    
+    // Lazy method - first 10
+    timer.start();
+    auto lazyGen = filter.queryGenerator(data, "$[*].name", 10);
+    std::vector<QueryResult> lazyPartial;
+    while (lazyGen.hasNext()) {
+        lazyPartial.push_back(lazyGen.next());
+    }
+    long long lazyPartialTime = timer.end();
+    
+    // Lazy method - all results
+    timer.start();
+    auto lazyGenAll = filter.queryGenerator(data, "$[*].name");
+    std::vector<QueryResult> lazyAll;
+    while (lazyGenAll.hasNext()) {
+        lazyAll.push_back(lazyGenAll.next());
+    }
+    long long lazyAllTime = timer.end();
+    
+    // Assertions
+    ASSERT_EQ(10000, traditionalResults.size());
+    ASSERT_EQ(10, lazyPartial.size());
+    ASSERT_EQ(10000, lazyAll.size());
+    
+    // Performance analysis
+    std::cout << "=== Performance Analysis ===" << std::endl;
+    std::cout << "Traditional (all): " << traditionalTime << " μs" << std::endl;
+    std::cout << "Lazy (first 10):   " << lazyPartialTime << " μs" << std::endl;
+    std::cout << "Lazy (all):        " << lazyAllTime << " μs" << std::endl;
+    
+    if (traditionalTime > 0) {
+        double partialImprovement = static_cast<double>(traditionalTime - lazyPartialTime) / traditionalTime * 100;
+        std::cout << "Lazy partial improvement: " << std::fixed << std::setprecision(1) 
+                  << partialImprovement << "%" << std::endl;
     }
     
-    std::cout << "\n=== Conclusion ===" << std::endl;
-    std::cout << "Lazy loading should be significantly faster when only partial results are needed" << std::endl;
-    std::cout << "Lazy loading may be comparable to the traditional method when all results are needed" << std::endl;
+    // Lazy partial should be faster for partial results
+    ASSERT_TRUE(lazyPartialTime < traditionalTime);
     
-    return 0;
+    // Verify result consistency
+    for (size_t i = 0; i < 10; ++i) {
+        ASSERT_EQ(traditionalResults[i].value->toString(), lazyPartial[i].value->toString());
+        ASSERT_EQ(traditionalResults[i].value->toString(), lazyAll[i].value->toString());
+    }
+}
+
+TEST(LazyQueryProgressiveRetrieval) {
+    JsonFilter filter = JsonFilter::createDefault();
+    JsonValue data = generateLargeDataset(1000);
+    
+    std::vector<size_t> batchSizes = {1, 5, 10, 50, 100};
+    
+    for (size_t batchSize : batchSizes) {
+        PerformanceTimer timer;
+        timer.start();
+        
+        auto generator = filter.queryGenerator(data, "$[*].name", 100);
+        std::vector<QueryResult> results;
+        
+        while (generator.hasNext() && results.size() < 100) {
+            auto batch = generator.nextBatch(batchSize);
+            results.insert(results.end(), batch.begin(), batch.end());
+        }
+        
+        long long duration = timer.end();
+        
+        ASSERT_TRUE(results.size() <= 100);
+        std::cout << "Batch size " << std::setw(3) << batchSize 
+                  << ": " << std::setw(6) << duration << " μs" 
+                  << ", Results: " << results.size() << std::endl;
+    }
+}
+
+TEST(LazyQueryMemoryEfficiency) {
+    JsonFilter filter = JsonFilter::createDefault();
+    JsonValue data = generateLargeDataset(5000);
+    
+    // Simulate processing large dataset in chunks
+    const size_t chunkSize = 100;
+    size_t totalProcessed = 0;
+    
+    auto generator = filter.queryGenerator(data, "$[*].name");
+    
+    PerformanceTimer timer;
+    timer.start();
+    
+    while (generator.hasNext() && totalProcessed < 1000) {
+        auto batch = generator.nextBatch(chunkSize);
+        
+        // Simulate processing each chunk
+        for (const auto& item : batch) {
+            ASSERT_TRUE(item.value->toString().find("item_") == 0);
+        }
+        
+        totalProcessed += batch.size();
+        
+        // In real scenario, batch would be processed and discarded
+        if (batch.size() < chunkSize) {
+            break;
+        }
+    }
+    
+    long long duration = timer.end();
+    
+    ASSERT_EQ(1000, totalProcessed);
+    std::cout << "Memory efficient processing: " << duration << " μs for " 
+              << totalProcessed << " items in chunks of " << chunkSize << std::endl;
+}
+
+int main() {
+    std::cout << "=== Legacy Performance Test Suite ===" << std::endl;
+    std::cout << "Dataset size: 10,000 objects" << std::endl;
+    std::cout << "Testing traditional vs lazy query performance" << std::endl << std::endl;
+    
+    return RUN_ALL_TESTS();
 }

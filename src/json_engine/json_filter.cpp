@@ -311,43 +311,42 @@ std::vector<QueryResult> JsonFilter::optimizedArrayTraversal(const JsonValue& js
 
 JsonFilter::LazyQueryGenerator::LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, const std::string& expression)
     : filter_(filter), root_(root), expression_(expression), useFilterFunc_(false), initialized_(false), 
-      maxResults_(0), resultCount_(0), optimizedMode_(false) {
-    // Delayed initialization, parse JSONPath on first call
+      maxResults_(0), resultCount_(0) {
+    // Delayed initialization
 }
 
 JsonFilter::LazyQueryGenerator::LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, FilterFunction func)
     : filter_(filter), root_(root), filterFunc_(func), useFilterFunc_(true), initialized_(false), 
-      maxResults_(0), resultCount_(0), optimizedMode_(false) {
-    stack_.emplace_back(StackFrame{root_, "$", 0});
-    advance();
+      maxResults_(0), resultCount_(0) {
+    // Filter function mode - not implemented in this refactor, kept for compatibility
+    initialized_ = true;
 }
 
 JsonFilter::LazyQueryGenerator::LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, const std::string& expression, size_t maxResults)
     : filter_(filter), root_(root), expression_(expression), useFilterFunc_(false), initialized_(false), 
-      maxResults_(maxResults), resultCount_(0), optimizedMode_(true) {
-    // Delayed initialization with optimization hints
+      maxResults_(maxResults), resultCount_(0) {
+    // Delayed initialization with result limit
 }
 
 bool JsonFilter::LazyQueryGenerator::hasNext() const {
-    // Check if we've reached the maximum results limit
-    if (optimizedMode_ && maxResults_ > 0 && resultCount_ >= maxResults_) {
+    // Check result limit
+    if (maxResults_ > 0 && resultCount_ >= maxResults_) {
         return false;
     }
     
     if (!initialized_) {
-        const_cast<LazyQueryGenerator*>(this)->initializeJsonPath();
+        const_cast<LazyQueryGenerator*>(this)->initialize();
     }
     return current_.has_value();
 }
 
 QueryResult JsonFilter::LazyQueryGenerator::next() {
-    QueryResult result = *current_;
-    
-    // Increment result count for optimization tracking
-    if (optimizedMode_) {
-        resultCount_++;
+    if (!hasNext()) {
+        throw std::runtime_error("No more results available");
     }
     
+    QueryResult result = *current_;
+    resultCount_++;
     advance();
     return result;
 }
@@ -363,193 +362,315 @@ std::vector<QueryResult> JsonFilter::LazyQueryGenerator::nextBatch(size_t maxCou
     return results;
 }
 
-void JsonFilter::LazyQueryGenerator::initializeJsonPath() {
-    if (!initialized_ && !useFilterFunc_) {
-        try {
-            // Smart optimization strategy based on result set size and query complexity
-            if (optimizedMode_ && maxResults_ > 0) {
-                // For medium result sets (51-1000), use batched fast path approach
-                if (maxResults_ <= 1000) {
-                    // Use fast path with chunked loading for better memory efficiency
-                    auto fastResults = filter_->queryFast(*root_, expression_, maxResults_);
-                    
-                    // Convert fast results to lazy iterator compatible format
-                    incrementalLazyState_ = std::make_unique<IncrementalLazyState>();
-                    incrementalLazyState_->readyResults.reserve(fastResults.size());
-                    
-                    for (const auto& result : fastResults) {
-                        incrementalLazyState_->readyResults.emplace_back(result.value, result.path);
-                    }
-                    
-                    incrementalLazyState_->readyResultIndex = 0;
-                    incrementalLazyState_->finished = false;
-                    incrementalLazyState_->initialized = true;
-                    
-                    initialized_ = true;
-                    advance(); // Get the first result
-                    return;
-                }
-                
-                // For very large result sets (>1000), use true streaming lazy evaluation
-                // This is where the traditional lazy approach actually makes sense
-                // But we'll optimize it further with early termination
-            }
-            
-            // Traditional lazy path for very large result sets or when optimization is disabled
-            incrementalLazyState_ = std::make_unique<IncrementalLazyState>();
-            incrementalLazyState_->jsonPath = std::make_unique<jsonpath::JsonPath>(expression_);
-            incrementalLazyState_->nodes = incrementalLazyState_->jsonPath->getNodes();
-            
-            // Initialize with root element as the first candidate
-            incrementalLazyState_->currentCandidates.emplace_back(root_, "$");
-            incrementalLazyState_->initialized = true;
-            
-            initialized_ = true;
-            advance(); // Get the first result
-        } catch (const std::exception& e) {
-            // JSONPath parsing failed, set as initialized but no results
-            initialized_ = true;
-            current_.reset();
+void JsonFilter::LazyQueryGenerator::initialize() {
+    if (initialized_ || useFilterFunc_) {
+        return;
+    }
+    
+    try {
+        // Parse JSONPath expression using existing json_path module
+        jsonPath_ = std::make_unique<jsonpath::JsonPath>(expression_);
+        nodes_ = jsonPath_->getNodes();
+        
+        // Initialize the evaluation stack
+        while (!stack_.empty()) {
+            stack_.pop();
         }
+        stack_.emplace(root_, "$", 0);
+        
+        // Get the first result
+        advance();
+        
+        initialized_ = true;
+    } catch (const std::exception&) {
+        // Handle parse errors gracefully
+        initialized_ = true;
+        current_.reset();
     }
 }
 
 void JsonFilter::LazyQueryGenerator::advance() {
     current_.reset();
     
-    // Check if we've reached the maximum results limit in optimized mode
-    if (optimizedMode_ && maxResults_ > 0 && resultCount_ >= maxResults_) {
-        return; // No more results needed
-    }
-    
-    if (!useFilterFunc_ && initialized_ && incrementalLazyState_) {
-        // Check if we're using fast path results
-        if (optimizedMode_ && !incrementalLazyState_->readyResults.empty()) {
-            // Fast path mode - return pre-computed results
-            if (incrementalLazyState_->readyResultIndex < incrementalLazyState_->readyResults.size()) {
-                auto& pair = incrementalLazyState_->readyResults[incrementalLazyState_->readyResultIndex++];
-                size_t depth = std::count(pair.second.begin(), pair.second.end(), '.') + 
-                             std::count(pair.second.begin(), pair.second.end(), '[');
-                current_ = QueryResult(pair.first, pair.second, depth);
-                return;
-            } else {
-                // All fast path results consumed
-                return;
-            }
-        }
-        
-        // JSONPath mode - true incremental lazy evaluation
-        advanceIncrementalLazy();
+    // Check result limit
+    if (maxResults_ > 0 && resultCount_ >= maxResults_) {
         return;
     }
-    
-    // FilterFunction mode - traverse the JSON structure
-    while (!stack_.empty()) {
-        auto frame = stack_.back();
-        stack_.pop_back();
 
-        if (filter_->matchesFilter(*frame.value, frame.path, filterFunc_)) {
-            current_ = QueryResult(frame.value, frame.path, frame.depth);
-            break;
+    while (!stack_.empty()) {
+        Frame& frame = stack_.top();
+
+        // If we've reached the end of the path, this is a result
+        if (frame.nodeIndex == nodes_.size()) {
+            size_t depth = std::count(frame.path.begin(), frame.path.end(), '.') + 
+                         std::count(frame.path.begin(), frame.path.end(), '[');
+            current_ = QueryResult(frame.value, frame.path, depth);
+            stack_.pop();
+            return;
         }
 
+        const auto& node = nodes_[frame.nodeIndex];
+        bool shouldContinue = processNode(frame, node);
+        
+        if (!shouldContinue) {
+            stack_.pop();
+        }
+        
+        // If we found a result, return it
+        if (current_.has_value()) {
+            return;
+        }
+    }
+}
+
+bool JsonFilter::LazyQueryGenerator::processNode(Frame& frame, const jsonpath::PathNode& node) {
+    switch (node.type) {
+        case jsonpath::NodeType::ROOT:
+            frame.nodeIndex++;
+            return true;
+            
+        case jsonpath::NodeType::PROPERTY:
+            return processProperty(frame, node.property);
+            
+        case jsonpath::NodeType::INDEX:
+            return processIndex(frame, node.index);
+            
+        case jsonpath::NodeType::SLICE:
+            return processSlice(frame, node.slice_start, node.slice_end);
+            
+        case jsonpath::NodeType::WILDCARD:
+            return processWildcard(frame);
+            
+        case jsonpath::NodeType::RECURSIVE:
+            return processRecursive(frame, node.property);
+            
+        default:
+            return false;
+    }
+}
+
+bool JsonFilter::LazyQueryGenerator::processProperty(Frame& frame, const std::string& property) {
+    if (frame.value->isObject()) {
+        const auto* obj = frame.value->getObject();
+        if (obj) {
+            auto it = obj->find(property);
+            if (it != obj->end()) {
+                // Update current frame to point to the found property value
+                frame.value = &it->second;
+                frame.path += "." + property;
+                frame.nodeIndex++;
+                return true;
+            }
+        }
+    }
+    return false; // Not found, remove this frame
+}
+
+bool JsonFilter::LazyQueryGenerator::processIndex(Frame& frame, int index) {
+    if (frame.value->isArray()) {
+        const auto* arr = frame.value->getArray();
+        if (arr && index >= 0 && static_cast<size_t>(index) < arr->size()) {
+            frame.value = &(*arr)[index];
+            frame.path += "[" + std::to_string(index) + "]";
+            frame.nodeIndex++;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool JsonFilter::LazyQueryGenerator::processSlice(Frame& frame, int start, int end) {
+    if (!frame.value->isArray()) return false;
+    
+    const auto* arr = frame.value->getArray();
+    if (!arr) return false;
+    
+    // Initialize array traversal state
+    if (frame.arraySize == 0) {
+        int actualEnd = end == -1 ? static_cast<int>(arr->size()) : end;
+        if (start < 0) start = 0;
+        if (actualEnd > static_cast<int>(arr->size())) actualEnd = static_cast<int>(arr->size());
+        
+        frame.arrayIndex = start;
+        frame.arraySize = actualEnd;
+    }
+    
+    // Check if there are more elements to process
+    if (frame.arrayIndex < frame.arraySize) {
+        // Create new frame for current array element
+        Frame newFrame(frame.value, frame.path, frame.nodeIndex);
+        newFrame.value = &(*arr)[frame.arrayIndex];
+        newFrame.path = frame.path + "[" + std::to_string(frame.arrayIndex) + "]";
+        newFrame.nodeIndex = frame.nodeIndex + 1;
+        
+        frame.arrayIndex++; // Prepare for next iteration
+        
+        // If this is the last element, mark current frame as complete
+        if (frame.arrayIndex >= frame.arraySize) {
+            stack_.pop(); // Remove current frame
+        }
+        
+        stack_.push(newFrame);
+        return true;
+    }
+    
+    return false;
+}
+
+bool JsonFilter::LazyQueryGenerator::processWildcard(Frame& frame) {
+    // Initialize iteration state on first call
+    if (frame.childIndex == 0) {
         if (frame.value->isObject()) {
             const auto* obj = frame.value->getObject();
-            if (obj) {
-                for (auto it = obj->begin(); it != obj->end(); ++it) {
-                    std::string newPath = filter_->buildPath(frame.path, it->first);
-                    stack_.emplace_back(StackFrame{&it->second, newPath, frame.depth + 1});
-                }
+            if (!obj || obj->empty()) {
+                return false;
             }
-        } else if (frame.value->isArray()) {
+            frame.arraySize = obj->size(); // Reuse arraySize for object size
+        }
+        else if (frame.value->isArray()) {
             const auto* arr = frame.value->getArray();
-            if (arr) {
-                for (size_t i = arr->size(); i-- > 0;) {
-                    std::string newPath = filter_->buildArrayPath(frame.path, i);
-                    stack_.emplace_back(StackFrame{&(*arr)[i], newPath, frame.depth + 1});
+            if (!arr || arr->empty()) {
+                return false;
+            }
+            frame.arraySize = arr->size();
+        }
+        else {
+            return false; // Not iterable
+        }
+    }
+    
+    // Process next child using optimized iteration
+    if (frame.value->isObject()) {
+        const auto* obj = frame.value->getObject();
+        if (obj && frame.childIndex < frame.arraySize) {
+            auto it = obj->begin();
+            std::advance(it, frame.childIndex);
+            
+            // Pre-allocate path string for better performance
+            std::string childPath;
+            childPath.reserve(frame.path.size() + it->first.size() + 1);
+            childPath = frame.path + "." + it->first;
+            
+            Frame newFrame(&it->second, std::move(childPath), frame.nodeIndex + 1);
+            
+            frame.childIndex++;
+            
+            // Remove current frame if this is the last child
+            if (frame.childIndex >= frame.arraySize) {
+                stack_.pop();
+            }
+            
+            stack_.push(std::move(newFrame));
+            return true;
+        }
+    }
+    else if (frame.value->isArray()) {
+        const auto* arr = frame.value->getArray();
+        if (arr && frame.childIndex < frame.arraySize) {
+            // Pre-allocate path string for array index
+            std::string childPath;
+            childPath.reserve(frame.path.size() + 12); // Estimate for "[index]"
+            childPath = frame.path + "[" + std::to_string(frame.childIndex) + "]";
+            
+            Frame newFrame(&(*arr)[frame.childIndex], std::move(childPath), frame.nodeIndex + 1);
+            
+            frame.childIndex++;
+            
+            // Remove current frame if this is the last element
+            if (frame.childIndex >= frame.arraySize) {
+                stack_.pop();
+            }
+            
+            stack_.push(std::move(newFrame));
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+bool JsonFilter::LazyQueryGenerator::processRecursive(Frame& frame, const std::string& property) {
+    // State machine for recursive search - prevent duplicate results
+    switch (frame.recursiveState) {
+        case Frame::RecursiveState::None:
+            frame.recursiveState = Frame::RecursiveState::SearchingSelf;
+            frame.recursiveProperty = property;
+            // Continue to SearchingSelf
+            
+        case Frame::RecursiveState::SearchingSelf: {
+            bool foundMatch = false;
+            // Check if current node matches
+            if (!property.empty() && frame.value->isObject()) {
+                const auto* obj = frame.value->getObject();
+                if (obj) {
+                    auto it = obj->find(property);
+                    if (it != obj->end()) {
+                        // Found match, create result frame
+                        Frame resultFrame(&it->second, frame.path + "." + property, frame.nodeIndex + 1);
+                        stack_.push(resultFrame);
+                        foundMatch = true;
+                    }
                 }
             }
+            
+            // Transition to searching children state
+            frame.recursiveState = Frame::RecursiveState::SearchingChildren;
+            
+            // Return true if we found a match, this will be processed in the next iteration
+            if (foundMatch) {
+                return true;
+            }
+            // Continue to SearchingChildren if no match found
         }
+            
+        case Frame::RecursiveState::SearchingChildren:
+            // Initialize children list if needed
+            if (frame.children.empty() && frame.childIndex == 0) {
+                if (frame.value->isObject()) {
+                    const auto* obj = frame.value->getObject();
+                    if (obj) {
+                        for (const auto& [key, child] : *obj) {
+                            frame.children.emplace_back(key, &child);
+                        }
+                    }
+                }
+                else if (frame.value->isArray()) {
+                    const auto* arr = frame.value->getArray();
+                    if (arr) {
+                        for (size_t i = 0; i < arr->size(); ++i) {
+                            frame.children.emplace_back("[" + std::to_string(i) + "]", &(*arr)[i]);
+                        }
+                    }
+                }
+            }
+            
+            // Process next child node
+            if (frame.childIndex < frame.children.size()) {
+                const auto& [childPath, childValue] = frame.children[frame.childIndex];
+                
+                // Create recursive frame for child node
+                Frame recursiveFrame(childValue, frame.path + (childPath[0] == '[' ? childPath : "." + childPath), frame.nodeIndex);
+                // Important: reset recursive state for child
+                recursiveFrame.recursiveState = Frame::RecursiveState::None;
+                
+                frame.childIndex++;
+                
+                // If this is the last child, remove current frame
+                if (frame.childIndex >= frame.children.size()) {
+                    stack_.pop();
+                }
+                
+                stack_.push(recursiveFrame);
+                return true;
+            }
+            
+            return false; // No more children
     }
+    
+    return false;
 }
 
-void JsonFilter::LazyQueryGenerator::advanceIncrementalLazy() {
-    if (incrementalLazyState_->finished) {
-        return;
-    }
-
-    // First, check if we have ready results to return
-    if (incrementalLazyState_->readyResultIndex < incrementalLazyState_->readyResults.size()) {
-        auto& pair = incrementalLazyState_->readyResults[incrementalLazyState_->readyResultIndex++];
-        size_t depth = std::count(pair.second.begin(), pair.second.end(), '.') + 
-                     std::count(pair.second.begin(), pair.second.end(), '[');
-        current_ = QueryResult(pair.first, pair.second, depth);
-        return;
-    }
-
-    // If we've consumed all ready results and there are no more to compute, we're done
-    if (incrementalLazyState_->currentNodeIndex >= incrementalLazyState_->nodes.size()) {
-        incrementalLazyState_->finished = true;
-        return;
-    }
-
-    // Process one batch of nodes to generate more results
-    while (incrementalLazyState_->currentNodeIndex < incrementalLazyState_->nodes.size()) {
-        const auto& currentNode = incrementalLazyState_->nodes[incrementalLazyState_->currentNodeIndex];
-        incrementalLazyState_->nextCandidates.clear();
-
-        // Process each current candidate through the current node
-        for (const auto& [value, path] : incrementalLazyState_->currentCandidates) {
-            std::vector<std::pair<const JsonValue*, std::string>> nodeOutputs;
-            
-            // Special handling for ROOT node
-            if (currentNode.type == jsonpath::NodeType::ROOT) {
-                // ROOT node just passes through the input
-                nodeOutputs.emplace_back(value, path);
-            } else {
-                // Use evaluateSingleNode for other nodes
-                incrementalLazyState_->jsonPath->evaluateSingleNode(currentNode, value, path, nodeOutputs);
-            }
-            
-            // Add all outputs to next candidates
-            for (const auto& output : nodeOutputs) {
-                incrementalLazyState_->nextCandidates.emplace_back(output);
-            }
-        }
-
-        // Move to next node
-        incrementalLazyState_->currentNodeIndex++;
-        
-        // If this was the last node, the next candidates are our final results
-        if (incrementalLazyState_->currentNodeIndex >= incrementalLazyState_->nodes.size()) {
-            // All next candidates become ready results
-            incrementalLazyState_->readyResults = std::move(incrementalLazyState_->nextCandidates);
-            incrementalLazyState_->readyResultIndex = 0;
-            break;
-        } else {
-            // Continue processing with next candidates as current candidates
-            incrementalLazyState_->currentCandidates = std::move(incrementalLazyState_->nextCandidates);
-            
-            // If no candidates left, we're done
-            if (incrementalLazyState_->currentCandidates.empty()) {
-                incrementalLazyState_->finished = true;
-                return;
-            }
-        }
-    }
-
-    // If we have ready results, return the first one
-    if (incrementalLazyState_->readyResultIndex < incrementalLazyState_->readyResults.size()) {
-        auto& pair = incrementalLazyState_->readyResults[incrementalLazyState_->readyResultIndex++];
-        size_t depth = std::count(pair.second.begin(), pair.second.end(), '.') + 
-                     std::count(pair.second.begin(), pair.second.end(), '[');
-        current_ = QueryResult(pair.first, pair.second, depth);
-    } else {
-        incrementalLazyState_->finished = true;
-    }
-}
-
-// === Lazy query generator methods ===
+// === Lazy query generator factory methods ===
 
 JsonFilter::LazyQueryGenerator JsonFilter::queryGenerator(const JsonValue& jsonValue, const FilterFunction& filter) const {
     return LazyQueryGenerator(this, &jsonValue, filter);

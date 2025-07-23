@@ -166,6 +166,20 @@ TEST(JsonPath_ComplexNesting) {
     }
 }
 
+TEST(JsonPath_TestJsonGenerator) {
+  std::unordered_map<int, JsonValue> testData;
+  for (int i = 0; i < 1000; ++i) {
+    JsonValue::ObjectType item;
+    item["id"] = JsonValue(i);
+    item["name"] = JsonValue("Item " + std::to_string(i));
+    item["value"] = JsonValue(i * 1.5);
+    testData[i] = JsonValue(std::move(item));
+  }
+
+  std::cout << "data 1:" << testData[0]["name"].toString() << std::endl;
+  std::cout << "data 999:" << testData[999]["name"].toString() << std::endl;
+}
+
 int main() {
     return RUN_ALL_TESTS();
 }

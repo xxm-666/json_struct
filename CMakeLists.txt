@@ -11,7 +11,7 @@ set(JSON_STRUCT_VERSION_MINOR 2)
 set(JSON_STRUCT_VERSION_PATCH 0)
 set(JSON_STRUCT_VERSION_SUFFIX "dev")  # 空字符串表示正式版本
 
-# 计算完整版本号
+# 计算完整版本号 
 if(JSON_STRUCT_VERSION_SUFFIX STREQUAL "")
     set(PROJECT_VERSION "${JSON_STRUCT_VERSION_MAJOR}.${JSON_STRUCT_VERSION_MINOR}.${JSON_STRUCT_VERSION_PATCH}")
 else()
@@ -46,12 +46,18 @@ else()
     set(JSON_STRUCT_GIT_BRANCH "unknown")
 endif()
 
-# 生成版本头文件
+
+# 生成版本头文件到构建目录，避免只读源目录问题
+set(GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated")
+file(MAKE_DIRECTORY "${GENERATED_INCLUDE_DIR}")
 configure_file(
-    "${CMAKE_SOURCE_DIR}/src/version.h.in"
-    "${CMAKE_SOURCE_DIR}/src/version.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in"
+    "${GENERATED_INCLUDE_DIR}/version.h"
     @ONLY
 )
+
+# 添加生成目录到头文件搜索路径
+include_directories(BEFORE "${GENERATED_INCLUDE_DIR}")
 
 # 显示版本信息
 message(STATUS "JsonStruct Version: ${PROJECT_VERSION}")
@@ -90,6 +96,7 @@ set(CORE_HEADERS
     src/json_engine/json_stream_parser.h
     src/json_engine/json_path.h
     src/json_engine/json_filter.h
+    src/json_engine/json_lazy_query.h
 )
 
 # 添加INTERFACE头文件路径
