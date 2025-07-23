@@ -123,11 +123,6 @@ add_executable(test_lazy_suite_runner tests/test_lazy_suite_runner.cpp)
 target_link_libraries(test_lazy_suite_runner PRIVATE test_framework json_struct)
 target_compile_features(test_lazy_suite_runner PRIVATE cxx_std_17)
 
-# 基础 FilterFunction 测试
-add_executable(test_filter_basic tests/test_filter_basic.cpp)
-target_link_libraries(test_filter_basic PRIVATE test_framework json_struct)
-target_compile_features(test_filter_basic PRIVATE cxx_std_17)
-
 # 简单 FilterFunction 测试
 add_executable(simple_filter_test tests/simple_filter_test.cpp)
 target_link_libraries(simple_filter_test PRIVATE json_struct)
