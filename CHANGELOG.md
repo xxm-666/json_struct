@@ -51,6 +51,11 @@
   - 过滤器中的方括号属性访问：`@['spaced property']`
   - 递归搜索支持：`$..['spaced property']`
   - 混合语法支持：`$.data['user info'][*].name`
+- 添加JsonPatch功能
+  - `ApplyPatch()`方法
+  - 支持添加、删除、替换、移动等操作
+  - 支持数组操作
+  - 支持对象操作
 
 ### 改进
 - 过滤器表达式解析增强

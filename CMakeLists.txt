@@ -69,7 +69,6 @@ message(STATUS "Git Branch: ${JSON_STRUCT_GIT_BRANCH}")
 include_directories(src)
 include_directories(src/type_registry)
 include_directories(src/std_types)
-include_directories(src/qt_types)
 include_directories(src/json_engine)
 
 # Core library sources
@@ -78,9 +77,8 @@ set(CORE_SOURCES
     src/json_engine/json_query_generator.cpp
     src/json_engine/json_path.cpp
     src/json_engine/json_filter.cpp
+    src/json_engine/json_patch.cpp
     src/version.cpp
-    src/qt_types/qt_ultimate_registry.cpp
-    src/qt_types/qt_common.cpp
 )
 set(CORE_HEADERS
     src/jsonstruct.h
@@ -88,9 +86,6 @@ set(CORE_HEADERS
     src/type_registry/auto_serializer.h
     src/type_registry/field_macros.h
     src/std_types/std_registry.h
-    src/qt_types/qt_registry.h
-    src/qt_types/qt_ultimate_registry.h
-    src/qt_types/qt_common.h
     src/json_engine/json_value.h
     src/json_engine/json_number.h
     src/json_engine/json_stream_parser.h
@@ -99,6 +94,31 @@ set(CORE_HEADERS
     src/json_engine/json_lazy_query.h
 )
 
+# 可选的Qt支持
+option(ENABLE_QT_SUPPORT "Enable Qt support" OFF)
+
+if(ENABLE_QT_SUPPORT)
+    find_package(Qt6 COMPONENTS Core Widgets)
+    if(Qt6_FOUND)
+        add_definitions(-DQT_CORE_LIB)
+        # 添加Qt相关的源文件
+        list(APPEND CORE_SOURCES
+            src/qt_types/qt_ultimate_registry.cpp
+            src/qt_types/qt_common.cpp
+        )
+        list(APPEND CORE_HEADERS
+            src/qt_types/qt_registry.h
+            src/qt_types/qt_ultimate_registry.h
+            src/qt_types/qt_common.h
+        )
+        # 添加Qt包含目录
+        include_directories(src/qt_types)
+        message(STATUS "Qt6 found - Qt support enabled")
+    else()
+        message(WARNING "Qt6 not found - Qt support disabled")
+    endif()
+endif()
+
 # 添加INTERFACE头文件路径
 add_library(json_struct STATIC ${CORE_SOURCES} ${CORE_HEADERS})
 target_include_directories(json_struct INTERFACE
@@ -106,19 +126,9 @@ target_include_directories(json_struct INTERFACE
     $<INSTALL_INTERFACE:include/jsonstruct>
 )
 
-# 可选的Qt支持
-option(ENABLE_QT_SUPPORT "Enable Qt support" ON)
-
-if(ENABLE_QT_SUPPORT)
-    find_package(Qt6 COMPONENTS Core Widgets)
-    if(Qt6_FOUND)
-        add_definitions(-DQT_CORE_LIB)
-        target_link_libraries(json_struct PUBLIC Qt6::Core Qt6::Widgets)
-        target_include_directories(json_struct PUBLIC ${Qt6Core_INCLUDE_DIRS})
-        message(STATUS "Qt6 found - Qt support enabled")
-    else()
-        message(WARNING "Qt6 not found - Qt support disabled")
-    endif()
+if(ENABLE_QT_SUPPORT AND Qt6_FOUND)
+    target_link_libraries(json_struct PUBLIC Qt6::Core Qt6::Widgets)
+    target_include_directories(json_struct PUBLIC ${Qt6Core_INCLUDE_DIRS})
 endif()
 
 target_compile_features(json_struct PRIVATE cxx_std_17)
@@ -157,10 +167,15 @@ install(FILES src/std_types/std_registry.h
 )
 
 # Qt类型支持头文件
-install(FILES src/qt_types/qt_registry.h
-             src/qt_types/qt_ultimate_registry.h
-    DESTINATION include/jsonstruct/qt_types
-)
+if(ENABLE_QT_SUPPORT)
+    find_package(Qt6 COMPONENTS Core Widgets QUIET)
+    if(Qt6_FOUND)
+        install(FILES src/qt_types/qt_registry.h
+                     src/qt_types/qt_ultimate_registry.h
+            DESTINATION include/jsonstruct/qt_types
+        )
+    endif()
+endif()
 
 install(FILES src/json_engine/json_value.h
              src/json_engine/json_number.h
