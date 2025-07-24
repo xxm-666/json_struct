@@ -79,6 +79,7 @@ set(CORE_SOURCES
     src/json_engine/json_filter.cpp
     src/json_engine/json_patch.cpp
     src/version.cpp
+    src/json_engine/json_pipeline.cpp
 )
 set(CORE_HEADERS
     src/jsonstruct.h
@@ -92,6 +93,7 @@ set(CORE_HEADERS
     src/json_engine/json_path.h
     src/json_engine/json_filter.h
     src/json_engine/json_lazy_query.h
+    src/json_engine/json_pipeline.h
 )
 
 # 可选的Qt支持
@@ -134,7 +136,7 @@ endif()
 target_compile_features(json_struct PRIVATE cxx_std_17)
 
 # 选项控制是否编译测试和示例
-option(BUILD_TESTS "Build test targets" OFF)
+option(BUILD_TESTS "Build test targets" ON)
 option(BUILD_EXAMPLES "Build example targets" OFF)
 
 if(BUILD_TESTS)

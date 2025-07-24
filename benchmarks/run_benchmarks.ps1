@@ -102,3 +102,21 @@ if ($All) {
 
 Write-Host "===========================================" -ForegroundColor Green
 Write-Host "所有测试完成！" -ForegroundColor Green
+
+# Script to run JsonStruct benchmarks
+
+# Ensure the build directory exists
+if (!(Test-Path -Path "build")) {
+    Write-Host "Build directory does not exist. Please build the benchmarks first."
+    exit 1
+}
+
+# Navigate to the build directory
+Set-Location -Path "build"
+
+# Run the benchmarks
+Write-Host "Running JsonStruct benchmarks..."
+./JsonStructBenchmarks.exe
+
+# Return to the original directory
+Set-Location -Path ".."

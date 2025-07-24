@@ -165,6 +165,33 @@ cmake --build . --config Release --target build_all_benchmarks
 - **配置隔离**: 拥有独立的 CMake 配置，不影响主项目构建
 - **结果独立**: 测试结果和构建产物完全隔离
 
+# Benchmarks for JsonStruct
+
+This directory contains benchmark tests for the JsonStruct library. These benchmarks are designed to measure the performance of various JSON operations, including serialization, deserialization, and pipeline processing.
+
+## Structure
+- `tests/`: Contains individual benchmark test files.
+- `CMakeLists.txt`: Configuration for building and running benchmarks.
+- `run_benchmarks.ps1`: Script for executing benchmarks on Windows.
+
+## Running Benchmarks
+1. Build the benchmarks:
+   ```powershell
+   cmake -S . -B build
+   cmake --build build
+   ```
+
+2. Run the benchmarks:
+   ```powershell
+   .\run_benchmarks.ps1
+   ```
+
+## Adding New Benchmarks
+To add a new benchmark:
+1. Create a new `.cpp` file in the `tests/` directory.
+2. Update `CMakeLists.txt` to include the new file.
+3. Implement the benchmark logic using the existing framework.
+
 ## 贡献指南
 
 1. 添加新的基准测试时，请更新 CMake 配置
