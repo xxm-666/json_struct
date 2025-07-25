@@ -206,7 +206,7 @@ public:
             RecursiveState recursiveState = RecursiveState::None;
             std::string recursiveProperty;
             
-            // Children storage for recursive processing (consistent with json_lazy_query.h)
+            // Children storage for recursive processing
             std::vector<std::pair<std::string, const JsonValue*>> children;
             
             // Optimized child iteration state (iterator-based)

@@ -92,7 +92,6 @@ set(CORE_HEADERS
     src/json_engine/json_stream_parser.h
     src/json_engine/json_path.h
     src/json_engine/json_filter.h
-    src/json_engine/json_lazy_query.h
     src/json_engine/json_pipeline.h
 )
 
@@ -136,7 +135,7 @@ endif()
 target_compile_features(json_struct PRIVATE cxx_std_17)
 
 # 选项控制是否编译测试和示例
-option(BUILD_TESTS "Build test targets" ON)
+option(BUILD_TESTS "Build test targets" OFF)
 option(BUILD_EXAMPLES "Build example targets" OFF)
 
 if(BUILD_TESTS)

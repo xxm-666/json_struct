@@ -1,6 +1,7 @@
 #include "json_value.h"
 #include "json_filter.h"
 #include "json_query_generator.h"
+#include "json_error.h"
 #include <cctype>
 #include <algorithm>
 #include <cstdio>
@@ -125,13 +126,18 @@ std::string JsonValue::escapeString(std::string_view str, bool escapeUnicode) {
 }
 
 JsonValue JsonValue::parseValue(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    
     skipWhitespace(ctx);
+    if (ctx.hasError()) return JsonValue{};
     
     if (!ctx.hasMore()) {
-        throw std::runtime_error("Unexpected end of input at " + ctx.locationInfo());
+        ctx.setError(JsonErrc::UnexpectedEnd, "Unexpected end of input at " + ctx.locationInfo());
+        return JsonValue{};
     }
     
     ctx.validateDepth();
+    if (ctx.hasError()) return JsonValue{};
 
     char c = ctx.peek();
     switch (c) {
@@ -174,8 +180,9 @@ JsonValue JsonValue::parseValue(ParseContext& ctx) {
                 ctx.advance(c);
                 return parseValue(ctx); // Recursively try to parse next character
             }
-            throw std::runtime_error("Unexpected character '" + std::string(1, c) + 
-                                    "' at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedCharacter, 
+                "Unexpected character '" + std::string(1, c) + "' at " + ctx.locationInfo());
+            return JsonValue{};
     }
 }
 
@@ -212,6 +219,8 @@ void JsonValue::skipWhitespace(ParseContext& ctx) {
 }
 
 JsonValue JsonValue::parseNull(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    
     constexpr std::string_view nullStr = "null";
     
     if (ctx.source.substr(ctx.position, nullStr.length()) == nullStr) {
@@ -220,10 +229,13 @@ JsonValue JsonValue::parseNull(ParseContext& ctx) {
         }
         return JsonValue{};
     }
-    throw std::runtime_error("Invalid null value at " + ctx.locationInfo());
+    ctx.setError(JsonErrc::ParseError, "Invalid null value at " + ctx.locationInfo());
+    return JsonValue{};
 }
 
 JsonValue JsonValue::parseBool(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    
     constexpr std::string_view trueStr = "true";
     constexpr std::string_view falseStr = "false";
     
@@ -238,10 +250,13 @@ JsonValue JsonValue::parseBool(ParseContext& ctx) {
         }
         return JsonValue(false);
     }
-    throw std::runtime_error("Invalid boolean value at " + ctx.locationInfo());
+    ctx.setError(JsonErrc::UnexpectedCharacter, "Invalid boolean value at " + ctx.locationInfo());
+    return JsonValue{};
 }
 
 JsonValue JsonValue::parseNumber(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    
     size_t start = ctx.position;
     bool hasDecimal = false;
     bool hasExponent = false;
@@ -252,7 +267,8 @@ JsonValue JsonValue::parseNumber(ParseContext& ctx) {
     }
     
     if (!ctx.hasMore() || !std::isdigit(ctx.peek())) {
-        throw std::runtime_error("Invalid number format at " + ctx.locationInfo());
+        ctx.setError(JsonErrc::ParseError, "Invalid number format at " + ctx.locationInfo());
+        return JsonValue{};
     }
     
     // Integer part
@@ -261,7 +277,8 @@ JsonValue JsonValue::parseNumber(ParseContext& ctx) {
         // JSON standard: no numbers directly after 0
         if (ctx.hasMore() && std::isdigit(ctx.peek())) {
             if (ctx.options.strictMode) {
-                throw std::runtime_error("Leading zeros not allowed at " + ctx.locationInfo());
+                ctx.setError(JsonErrc::ParseError, "Leading zeros not allowed at " + ctx.locationInfo());
+                return JsonValue{};
             }
         }
     } else {
@@ -275,7 +292,8 @@ JsonValue JsonValue::parseNumber(ParseContext& ctx) {
         hasDecimal = true;
         ctx.advance(ctx.peek());
         if (!ctx.hasMore() || !std::isdigit(ctx.peek())) {
-            throw std::runtime_error("Invalid number format: expected digit after '.' at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::ParseError, "Invalid number format: expected digit after '.' at " + ctx.locationInfo());
+            return JsonValue{};
         }
         while (ctx.hasMore() && std::isdigit(ctx.peek())) {
             ctx.advance(ctx.peek());
@@ -290,7 +308,8 @@ JsonValue JsonValue::parseNumber(ParseContext& ctx) {
             ctx.advance(ctx.peek());
         }
         if (!ctx.hasMore() || !std::isdigit(ctx.peek())) {
-            throw std::runtime_error("Invalid number format: expected digit in exponent at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::ParseError, "Invalid number format: expected digit in exponent at " + ctx.locationInfo());
+            return JsonValue{};
         }
         while (ctx.hasMore() && std::isdigit(ctx.peek())) {
             ctx.advance(ctx.peek());
@@ -305,34 +324,32 @@ JsonValue JsonValue::parseNumber(ParseContext& ctx) {
         double result;
         auto [ptr, ec] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), result);
         if (ec != std::errc{}) {
-            throw std::runtime_error("Failed to parse number '" + std::string(numStr) + 
-                                    "' at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::ParseError, "Failed to parse number '" + std::string(numStr) + "' at " + ctx.locationInfo());
+            return JsonValue{};
         }
         return JsonValue(result);
     } else {
         // Integer: try to parse as int64_t first
-        try {
-            int64_t intResult;
-            auto [ptr, ec] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), intResult);
-            if (ec == std::errc{}) {
-                return JsonValue(static_cast<long long>(intResult));
-            }
-        } catch (...) {
-            // Integer parsing failed, fallback to double
+        int64_t intResult;
+        auto [ptr, ec] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), intResult);
+        if (ec == std::errc{}) {
+            return JsonValue(static_cast<long long>(intResult));
         }
         
         // Fallback to double parsing
         double result;
-        auto [ptr, ec] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), result);
-        if (ec != std::errc{}) {
-            throw std::runtime_error("Failed to parse number '" + std::string(numStr) + 
-                                    "' at " + ctx.locationInfo());
+        auto [ptr2, ec2] = std::from_chars(numStr.data(), numStr.data() + numStr.size(), result);
+        if (ec2 != std::errc{}) {
+            ctx.setError(JsonErrc::ParseError, "Failed to parse number '" + std::string(numStr) + "' at " + ctx.locationInfo());
+            return JsonValue{};
         }
         return JsonValue(result);
     }
 }
 
 JsonValue JsonValue::parseSpecialNumber(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    
     std::string_view source = ctx.source;
     size_t pos = ctx.position;
     
@@ -357,8 +374,9 @@ JsonValue JsonValue::parseSpecialNumber(ParseContext& ctx) {
         return JsonValue(JsonNumber::makeNegativeInfinity());
     }
     
-    // If none match, throw error
-    throw std::runtime_error("Invalid special number at " + ctx.locationInfo());
+    // If none match, set error
+    ctx.setError(JsonErrc::ParseError, "Invalid special number at " + ctx.locationInfo());
+    return JsonValue{};
 }
 
 std::string JsonValue::parseUnicodeEscape(std::string_view str, size_t& pos) {
@@ -419,9 +437,75 @@ std::string JsonValue::parseUnicodeEscape(std::string_view str, size_t& pos) {
     return result;
 }
 
+std::error_code JsonValue::parseUnicodeEscapeSafe(std::string_view str, size_t& pos, std::string& result, std::string& errMsg) {
+    if (pos + 6 > str.length()) {
+        errMsg = "Invalid Unicode escape sequence: too short";
+        return make_error_code(JsonErrc::ParseError);
+    }
+    
+    std::string hexStr(str.substr(pos + 2, 4));
+    pos += 6; // Skip \uXXXX
+    
+    // Parse hexadecimal
+    unsigned int codepoint;
+    auto [ptr, ec] = std::from_chars(hexStr.data(), hexStr.data() + 4, codepoint, 16);
+    if (ec != std::errc{} || ptr != hexStr.data() + 4) {
+        errMsg = "Invalid Unicode escape sequence: '" + hexStr + "'";
+        return make_error_code(JsonErrc::ParseError);
+    }
+    
+    // Handle surrogate pairs for UTF-16
+    if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
+        // High surrogate, need following low surrogate
+        if (pos + 5 >= str.length() || str.substr(pos, 2) != "\\u") {
+            errMsg = "Invalid surrogate pair: missing low surrogate";
+            return make_error_code(JsonErrc::ParseError);
+        }
+        
+        std::string lowHex(str.substr(pos + 2, 4));
+        pos += 6;
+        
+        unsigned int lowSurrogate;
+        auto [ptr2, ec2] = std::from_chars(lowHex.data(), lowHex.data() + 4, lowSurrogate, 16);
+        if (ec2 != std::errc{} || ptr2 != lowHex.data() + 4 || lowSurrogate < 0xDC00 || lowSurrogate > 0xDFFF) {
+            errMsg = "Invalid surrogate pair: invalid low surrogate";
+            return make_error_code(JsonErrc::ParseError);
+        }
+        
+        // Merge surrogate pair
+        codepoint = 0x10000 + ((codepoint & 0x3FF) << 10) + (lowSurrogate & 0x3FF);
+    }
+    
+    // Convert to UTF-8
+    result.clear();
+    if (codepoint <= 0x7F) {
+        result += static_cast<char>(codepoint);
+    } else if (codepoint <= 0x7FF) {
+        result += static_cast<char>(0xC0 | (codepoint >> 6));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    } else if (codepoint <= 0xFFFF) {
+        result += static_cast<char>(0xE0 | (codepoint >> 12));
+        result += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    } else if (codepoint <= 0x10FFFF) {
+        result += static_cast<char>(0xF0 | (codepoint >> 18));
+        result += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+        result += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    } else {
+        errMsg = "Invalid Unicode codepoint: " + std::to_string(codepoint);
+        return make_error_code(JsonErrc::ParseError);
+    }
+    
+    return make_error_code(JsonErrc::Success);
+}
+
 JsonValue JsonValue::parseString(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    
     if (ctx.peek() != '"') {
-        throw std::runtime_error("Expected '\"' at " + ctx.locationInfo());
+        ctx.setError(JsonErrc::UnexpectedCharacter, "Expected '\"' at " + ctx.locationInfo());
+        return JsonValue{};
     }
     ctx.advance(ctx.peek()); // skip opening quote
     
@@ -434,7 +518,8 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
         if (c == '\\') {
             ctx.advance(c); // skip backslash
             if (!ctx.hasMore()) {
-                throw std::runtime_error("Unexpected end of string at " + ctx.locationInfo());
+                ctx.setError(JsonErrc::UnexpectedEnd, "Unexpected end of string at " + ctx.locationInfo());
+                return JsonValue{};
             }
             char escape = ctx.peek();
             switch (escape) {
@@ -454,12 +539,14 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
                         ctx.position = tempPos;
                         continue; // Skip advance below
                     } catch (const std::exception&) {
-                        throw std::runtime_error("Invalid Unicode escape at " + ctx.locationInfo());
+                        ctx.setError(JsonErrc::Utf8Error, "Invalid Unicode escape at " + ctx.locationInfo());
+                        return JsonValue{};
                     }
                 }
                 default:
                     if (ctx.options.strictMode) {
-                        throw std::runtime_error("Invalid escape sequence '\\" + std::string(1, escape) + "' at " + ctx.locationInfo());
+                        ctx.setError(JsonErrc::ParseError, "Invalid escape sequence '\\" + std::string(1, escape) + "' at " + ctx.locationInfo());
+                        return JsonValue{};
                     } else {
                         // Non-strict mode: keep unknown escape sequence
                         result += '\\';
@@ -485,7 +572,8 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
     }
     
     if (!ctx.hasMore()) {
-        throw std::runtime_error("Unterminated string at " + ctx.locationInfo());
+        ctx.setError(JsonErrc::UnexpectedEnd, "Unterminated string at " + ctx.locationInfo());
+        return JsonValue{};
     }
     
     ctx.advance(ctx.peek()); // skip closing quote
@@ -493,14 +581,21 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
 }
 
 JsonValue JsonValue::parseArray(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    
     if (ctx.peek() != '[') {
-        throw std::runtime_error("Expected '[' at " + ctx.locationInfo());
+        ctx.setError(JsonErrc::UnexpectedCharacter, "Expected '[' at " + ctx.locationInfo());
+        return JsonValue{};
     }
     ctx.advance(ctx.peek()); // skip '['
     ++ctx.depth;
     
     ArrayType arr;
     skipWhitespace(ctx);
+    if (ctx.hasError()) {
+        --ctx.depth;
+        return JsonValue{};
+    }
     
     // Empty array
     if (ctx.hasMore() && ctx.peek() == ']') {
@@ -511,10 +606,21 @@ JsonValue JsonValue::parseArray(ParseContext& ctx) {
     
     while (true) {
         arr.emplace_back(parseValue(ctx));
+        if (ctx.hasError()) {
+            --ctx.depth;
+            return JsonValue{};
+        }
+        
         skipWhitespace(ctx);
+        if (ctx.hasError()) {
+            --ctx.depth;
+            return JsonValue{};
+        }
         
         if (!ctx.hasMore()) {
-            throw std::runtime_error("Unterminated array at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedEnd, "Unterminated array at " + ctx.locationInfo());
+            --ctx.depth;
+            return JsonValue{};
         }
         
         char c = ctx.peek();
@@ -524,6 +630,10 @@ JsonValue JsonValue::parseArray(ParseContext& ctx) {
         } else if (c == ',') {
             ctx.advance(c);
             skipWhitespace(ctx);
+            if (ctx.hasError()) {
+                --ctx.depth;
+                return JsonValue{};
+            }
             
             // Handle trailing comma
             if (ctx.options.allowTrailingCommas && ctx.hasMore() && ctx.peek() == ']') {
@@ -531,7 +641,9 @@ JsonValue JsonValue::parseArray(ParseContext& ctx) {
                 break;
             }
         } else {
-            throw std::runtime_error("Expected ',' or ']' at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ',' or ']' at " + ctx.locationInfo());
+            --ctx.depth;
+            return JsonValue{};
         }
     }
 
@@ -540,14 +652,21 @@ JsonValue JsonValue::parseArray(ParseContext& ctx) {
 }
 
 JsonValue JsonValue::parseObject(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    
     if (ctx.peek() != '{') {
-        throw std::runtime_error("Expected '{' at " + ctx.locationInfo());
+        ctx.setError(JsonErrc::UnexpectedCharacter, "Expected '{' at " + ctx.locationInfo());
+        return JsonValue{};
     }
     ctx.advance(ctx.peek()); // skip '{'
     ++ctx.depth;
 
     ObjectType obj;
     skipWhitespace(ctx);
+    if (ctx.hasError()) {
+        --ctx.depth;
+        return JsonValue{};
+    }
 
     // Empty object
     if (ctx.hasMore() && ctx.peek() == '}') {
@@ -558,30 +677,56 @@ JsonValue JsonValue::parseObject(ParseContext& ctx) {
 
     while (true) {
         skipWhitespace(ctx);
+        if (ctx.hasError()) {
+            --ctx.depth;
+            return JsonValue{};
+        }
 
         // Parse key
         if (!ctx.hasMore() || ctx.peek() != '"') {
-            throw std::runtime_error("Expected string key at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedCharacter, "Expected string key at " + ctx.locationInfo());
+            --ctx.depth;
+            return JsonValue{};
         }
 
         auto keyValue = parseString(ctx);
+        if (ctx.hasError()) {
+            --ctx.depth;
+            return JsonValue{};
+        }
         auto key = keyValue.toString();
 
         skipWhitespace(ctx);
+        if (ctx.hasError()) {
+            --ctx.depth;
+            return JsonValue{};
+        }
 
         if (!ctx.hasMore() || ctx.peek() != ':') {
-            throw std::runtime_error("Expected ':' at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ':' at " + ctx.locationInfo());
+            --ctx.depth;
+            return JsonValue{};
         }
         ctx.advance(ctx.peek()); // skip ':'
 
         // Parse value
         auto value = parseValue(ctx);
+        if (ctx.hasError()) {
+            --ctx.depth;
+            return JsonValue{};
+        }
         obj.emplace(std::move(key), std::move(value));
 
         skipWhitespace(ctx);
+        if (ctx.hasError()) {
+            --ctx.depth;
+            return JsonValue{};
+        }
 
         if (!ctx.hasMore()) {
-            throw std::runtime_error("Unterminated object at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedEnd, "Unterminated object at " + ctx.locationInfo());
+            --ctx.depth;
+            return JsonValue{};
         }
 
         char c = ctx.peek();
@@ -591,6 +736,10 @@ JsonValue JsonValue::parseObject(ParseContext& ctx) {
         } else if (c == ',') {
             ctx.advance(c);
             skipWhitespace(ctx);
+            if (ctx.hasError()) {
+                --ctx.depth;
+                return JsonValue{};
+            }
 
             // Handle trailing comma
             if (ctx.options.allowTrailingCommas && ctx.hasMore() && ctx.peek() == '}') {
@@ -598,7 +747,9 @@ JsonValue JsonValue::parseObject(ParseContext& ctx) {
                 break;
             }
         } else {
-            throw std::runtime_error("Expected ',' or '}' at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ',' or '}' at " + ctx.locationInfo());
+            --ctx.depth;
+            return JsonValue{};
         }
     }
 
@@ -608,8 +759,11 @@ JsonValue JsonValue::parseObject(ParseContext& ctx) {
 
 // Enhanced error recovery parsing functions
 JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
+    if(ctx.hasError()) return JsonValue{};
+
     if (ctx.peek() != '{') {
-        throw std::runtime_error("Expected '{' at " + ctx.locationInfo());
+        ctx.setError(JsonErrc::UnexpectedCharacter, "Expected '{' at " + ctx.locationInfo());
+        return JsonValue{};
     }
     ctx.advance(ctx.peek()); // skip '{'
     ++ctx.depth;
@@ -645,7 +799,8 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
                     }
                     if (!ctx.hasMore() || ctx.peek() == '}') continue;
                 } else {
-                    throw std::runtime_error("Expected string key at " + ctx.locationInfo());
+                    ctx.setError(JsonErrc::UnexpectedCharacter, "Expected string key at " + ctx.locationInfo());
+                    return JsonValue{};
                 }
             }
 
@@ -662,7 +817,8 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
                     }
                     if (!ctx.hasMore() || ctx.peek() != ':') continue;
                 } else {
-                    throw std::runtime_error("Expected ':' at " + ctx.locationInfo());
+                    ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ':' at " + ctx.locationInfo());
+                    return JsonValue{};
                 }
             }
             ctx.advance(ctx.peek()); // skip ':'
@@ -702,7 +858,8 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
             // Skip unexpected character in recovery mode
             ctx.advance(c);
         } else {
-            throw std::runtime_error("Expected ',' or '}' at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ',' or '}' at " + ctx.locationInfo());
+            return JsonValue{};
         }
     }
 
@@ -711,8 +868,11 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
 }
 
 JsonValue JsonValue::parseArrayWithRecovery(ParseContext& ctx) {
+    if (ctx.hasError()) return JsonValue{};
+    // Check for '['
     if (ctx.peek() != '[') {
-        throw std::runtime_error("Expected '[' at " + ctx.locationInfo());
+        ctx.setError(JsonErrc::UnexpectedCharacter, "Expected '[' at " + ctx.locationInfo());
+        return JsonValue{};
     }
     ctx.advance(ctx.peek()); // skip '['
     ++ctx.depth;
@@ -773,7 +933,8 @@ JsonValue JsonValue::parseArrayWithRecovery(ParseContext& ctx) {
             // Skip unexpected character in recovery mode
             ctx.advance(c);
         } else {
-            throw std::runtime_error("Expected ',' or ']' at " + ctx.locationInfo());
+            ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ',' or ']' at " + ctx.locationInfo());
+            return JsonValue{};
         }
     }
     
@@ -832,6 +993,33 @@ std::vector<std::string> JsonValue::parseJsonPointer(std::string_view pointer) {
     return tokens;
 }
 
+std::error_code JsonValue::parseJsonPointerSafe(std::string_view pointer, std::vector<std::string>& tokens, std::string& errMsg) {
+    tokens.clear();
+    if (pointer.empty() || pointer == "/") {
+        return make_error_code(JsonErrc::Success);
+    }
+    
+    if (pointer[0] != '/') {
+        errMsg = "JSON pointer must start with '/'";
+        return make_error_code(JsonErrc::ParseError);
+    }
+    
+    size_t start = 1;
+    for (size_t i = 1; i <= pointer.length(); ++i) {
+        if (i == pointer.length() || pointer[i] == '/') {
+            std::string unescapedToken;
+            auto ec = unescapeJsonPointerSafe(pointer.substr(start, i - start), unescapedToken, errMsg);
+            if (ec) {
+                return ec;
+            }
+            tokens.push_back(std::move(unescapedToken));
+            start = i + 1;
+        }
+    }
+    
+    return make_error_code(JsonErrc::Success);
+}
+
 std::string JsonValue::unescapeJsonPointer(std::string_view token) {
     std::string result;
     for (size_t i = 0; i < token.length(); ++i) {
@@ -856,6 +1044,34 @@ std::string JsonValue::unescapeJsonPointer(std::string_view token) {
         }
     }
     return result;
+}
+
+std::error_code JsonValue::unescapeJsonPointerSafe(std::string_view token, std::string& result, std::string& errMsg) {
+    result.clear();
+    for (size_t i = 0; i < token.length(); ++i) {
+        if (token[i] == '~') {
+            if (i + 1 < token.length()) {
+                switch (token[i + 1]) {
+                    case '1':
+                        result += '/';
+                        break;
+                    case '0':
+                        result += '~';
+                        break;
+                    default:
+                        errMsg = "Invalid JSON pointer escape sequence: ~" + std::string(1, token[i + 1]);
+                        return make_error_code(JsonErrc::ParseError);
+                }
+                ++i; // Skip the next character as it is part of the escape sequence
+            } else {
+                errMsg = "Incomplete escape sequence at end of token";
+                return make_error_code(JsonErrc::ParseError);
+            }
+        } else {
+            result += token[i];
+        }
+    }
+    return make_error_code(JsonErrc::Success);
 }
 
 JsonValue& JsonValue::at(std::string_view jsonPointer) {
@@ -893,6 +1109,56 @@ JsonValue& JsonValue::at(std::string_view jsonPointer) {
 
 const JsonValue& JsonValue::at(std::string_view jsonPointer) const {
     return const_cast<JsonValue*>(this)->at(jsonPointer);
+}
+
+std::error_code JsonValue::atSafe(std::string_view jsonPointer, JsonValue*& result, std::string& errMsg) {
+    std::vector<std::string> tokens;
+    auto ec = parseJsonPointerSafe(jsonPointer, tokens, errMsg);
+    if (ec) {
+        return ec;
+    }
+    
+    JsonValue* current = this;
+    
+    for (const auto& token : tokens) {
+        if (current->isArray()) {
+            // Array index
+            size_t index;
+            auto [ptr, parseEc] = std::from_chars(token.data(), token.data() + token.size(), index);
+            if (parseEc != std::errc{}) {
+                errMsg = "Invalid array index: " + token;
+                return make_error_code(JsonErrc::ParseError);
+            }
+            if (index >= current->size()) {
+                errMsg = "Array index out of bounds: " + token;
+                return make_error_code(JsonErrc::OutOfRange);
+            }
+            current = &((*current)[index]);
+        } else if (current->isObject()) {
+            // Object key
+            std::string adjustedToken = token;
+            if (!current->contains(adjustedToken)) {
+                errMsg = "Property not found: " + adjustedToken;
+                return make_error_code(JsonErrc::OutOfRange);
+            }
+            current = &((*current)[adjustedToken]);
+        } else {
+            errMsg = "Cannot index into non-container type";
+            return make_error_code(JsonErrc::TypeError);
+        }
+    }
+    
+    result = current;
+    return make_error_code(JsonErrc::Success);
+}
+
+std::error_code JsonValue::atSafe(std::string_view jsonPointer, const JsonValue*& result, std::string& errMsg) const {
+    JsonValue* nonConstResult = nullptr;
+    auto ec = const_cast<JsonValue*>(this)->atSafe(jsonPointer, nonConstResult, errMsg);
+    if (!ec) {
+        result = nonConstResult;
+    }
+    return ec;
 }
 
 // Literal operator
@@ -957,6 +1223,24 @@ std::istream& operator>>(std::istream& is, JsonValue& value) {
     std::string json((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
     value = JsonValue::parse(json);
     return is;
+}
+
+} // namespace JsonStruct
+
+// Safe parsing and serialization: catch exceptions and return error codes
+namespace JsonStruct {
+
+std::error_code JsonValue::toJson(std::string& out,
+                                       std::string& errMsg,
+                                       const SerializeOptions& options) const {
+    try {
+        out = this->dump(options);
+        errMsg.clear();
+        return make_error_code(JsonErrc::Success);
+    } catch (const std::exception& ex) {
+        errMsg = ex.what();
+        return make_error_code(JsonErrc::UnknownError);
+    }
 }
 
 } // namespace JsonStruct

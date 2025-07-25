@@ -19,6 +19,7 @@
 #include <cmath>
 #include <functional>
 #include "json_number.h"
+#include "json_error.h"
 
 namespace JsonStruct {
 
@@ -92,6 +93,8 @@ private:
         size_t column = 1;
         size_t depth = 0;
         ParseOptions options;
+        std::error_code errCode{};
+        std::string errMsg;
         
         void advance(char c) {
             ++position;
@@ -118,9 +121,20 @@ private:
         
         void validateDepth() {
             if (depth >= options.maxDepth) {
-                throw std::runtime_error("Maximum nesting depth (" + 
-                    std::to_string(options.maxDepth) + ") exceeded at " + locationInfo());
+                setError(JsonErrc::DepthExceeded, 
+                    "Maximum nesting depth (" + std::to_string(options.maxDepth) + ") exceeded at " + locationInfo());
             }
+        }
+        
+        void setError(JsonErrc code, const std::string& message) {
+            if (!errCode) { // Only set first error
+                errCode = make_error_code(code);
+                errMsg = message;
+            }
+        }
+        
+        bool hasError() const {
+            return static_cast<bool>(errCode);
         }
     };
 
@@ -331,7 +345,7 @@ public:
         if (auto* arr = getArray()) {
             return *arr;
         }
-        throw std::runtime_error("JsonValue is not an array");
+        return {};  // Return empty array if not an array
     }
 
     ArrayType& toArray() {
@@ -345,7 +359,7 @@ public:
         if (auto* obj = getObject()) {
             return *obj;
         }
-        throw std::runtime_error("JsonValue is not an object");
+        return {};  // Return empty object if not an object
     }
 
     ObjectType& toObject() {
@@ -449,13 +463,37 @@ public:
 
     // Parsing
     static JsonValue parse(std::string_view str, const ParseOptions& options = {}) {
+        std::error_code ec;
+        std::string errMsg;
+        JsonValue result = parse(str, options, ec, errMsg);
+        if (ec) {
+            throw std::runtime_error(errMsg);
+        }
+        return result;
+    }
+    
+    // No-throw parsing that returns error via parameters
+    static JsonValue parse(std::string_view str, const ParseOptions& options, 
+                                  std::error_code& ec, std::string& errMsg) {
         ParseContext ctx{str, 0, 1, 1, 0, options};
         auto result = parseValue(ctx);
         skipWhitespace(ctx);
-        if (ctx.hasMore()) {
-            throw std::runtime_error("Extra characters after JSON at " + ctx.locationInfo());
+        if (!ctx.hasError() && ctx.hasMore()) {
+            ctx.setError(JsonErrc::UnexpectedCharacter, "Extra characters after JSON at " + ctx.locationInfo());
         }
+        ec = ctx.errCode;
+        errMsg = ctx.errMsg;
         return result;
+    }
+
+    // Safe parse: catch exceptions, return std::error_code and fill errMsg with details
+    static std::error_code parse(std::string_view str,
+                                  JsonValue& outValue,
+                                  std::string& errMsg,
+                                  const ParseOptions& options = {}) {
+        std::error_code ec;
+        outValue = parse(str, options, ec, errMsg);
+        return ec;
     }
 
     // Static factory methods for convenience
@@ -474,8 +512,8 @@ public:
     static JsonValue array() {
         return JsonValue(ArrayType{});
     }
-    
-    static JsonValue array(std::initializer_list<JsonValue> init = {}) {
+
+    static JsonValue array(std::initializer_list<JsonValue> init) {
         ArrayType arr;
         arr.reserve(init.size());
         for (auto&& item : init) {
@@ -485,16 +523,24 @@ public:
     }
 
     // Alias for dump() for compatibility
+    // This method maybe thrown as it is not safe
+    // Use toJson() for safe serialization
     std::string toJson(const SerializeOptions& options = {}) const {
         return dump(options);
     }
     
     // Compatibility overload with boolean pretty print parameter
+    // This method maybe thrown as it is not safe
     std::string toJson(bool pretty) const {
         SerializeOptions options;
         options.indent = pretty ? 2 : -1;
         return dump(options);
     }
+    // Safe toJson: catch exceptions and return std::error_code
+    // Safe toJson: catch exceptions, return std::error_code and fill errMsg with details
+    std::error_code toJson(std::string& out,
+                              std::string& errMsg,
+                              const SerializeOptions& options = {}) const;
     
     // Comparison operators
     bool operator==(const JsonValue& other) const noexcept {
@@ -519,6 +565,15 @@ public:
     // JSON Pointer support (RFC 6901)
     JsonValue& at(std::string_view jsonPointer);
     const JsonValue& at(std::string_view jsonPointer) const;
+    
+    // Safe JSON Pointer access - returns error codes instead of throwing
+    std::error_code atSafe(std::string_view jsonPointer, JsonValue*& result, std::string& errMsg);
+    std::error_code atSafe(std::string_view jsonPointer, const JsonValue*& result, std::string& errMsg) const;
+    
+    // Safe utility methods for JSON pointer parsing - returns error codes instead of throwing
+    static std::error_code parseUnicodeEscapeSafe(std::string_view str, size_t& pos, std::string& result, std::string& errMsg);
+    static std::error_code parseJsonPointerSafe(std::string_view pointer, std::vector<std::string>& tokens, std::string& errMsg);
+    static std::error_code unescapeJsonPointerSafe(std::string_view token, std::string& result, std::string& errMsg);
 
     // JSON Query support - delegated to JsonFilter for better separation of concerns
     // Note: For advanced filtering and querying, use JsonFilter class directly
