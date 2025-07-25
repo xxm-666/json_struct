@@ -93,7 +93,7 @@ private:
         size_t column = 1;
         size_t depth = 0;
         ParseOptions options;
-        std::error_code errCode{};
+        std::error_code errCode = make_error_code(JsonErrc::Success); // Initialize with Success
         std::string errMsg;
         
         void advance(char c) {

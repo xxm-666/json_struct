@@ -179,6 +179,11 @@ target_link_libraries(rfc7396_test PRIVATE json_struct)
 target_include_directories(rfc7396_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_features(rfc7396_test PRIVATE cxx_std_17)
 
+add_executable(test_error_codes tests/test_error_codes.cpp)
+target_link_libraries(test_error_codes PRIVATE test_framework json_struct)
+target_include_directories(test_error_codes PRIVATE test_framework json_struct)
+target_compile_features(test_error_codes PRIVATE cxx_std_17)
+
 # 创建运行核心测试的目标
 add_custom_target(run_core_tests
     DEPENDS test_core_functionality test_json_auto test_enhanced_features 
