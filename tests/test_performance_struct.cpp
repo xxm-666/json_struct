@@ -31,22 +31,27 @@ TEST(PerformanceStruct_BasicSerialization) {
     auto jsonVal = obj.toJson();
     ASSERT_TRUE(jsonVal.isObject());
     
-    auto jsonObj = jsonVal.toObject();
-    ASSERT_EQ(jsonObj.size(), 5); // 5 fields: id, name, value, data, properties
+    if(const auto& jsonOpt = jsonVal.toObject()) {
+        const auto& jsonObj = jsonOpt->get();
+        ASSERT_EQ(jsonObj.size(), 5); // 5 fields: id, name, value, data, properties
     
-    // Verify each field
-    ASSERT_TRUE(jsonObj.find("id") != jsonObj.end());
-    ASSERT_TRUE(jsonObj.find("name") != jsonObj.end());
-    ASSERT_TRUE(jsonObj.find("value") != jsonObj.end());
-    ASSERT_TRUE(jsonObj.find("data") != jsonObj.end());
-    ASSERT_TRUE(jsonObj.find("properties") != jsonObj.end());
-    
-    // Verify field values
-    ASSERT_EQ(jsonObj["id"].toInt(), 123);
-    ASSERT_EQ(jsonObj["name"].toString(), "test_object");
-    ASSERT_NEAR(jsonObj["value"].toDouble(), 45.67, 0.001);
-    ASSERT_TRUE(jsonObj["data"].isArray());
-    ASSERT_TRUE(jsonObj["properties"].isObject());
+        // Verify each field
+        ASSERT_TRUE(jsonObj.find("id") != jsonObj.end());
+        ASSERT_TRUE(jsonObj.find("name") != jsonObj.end());
+        ASSERT_TRUE(jsonObj.find("value") != jsonObj.end());
+        ASSERT_TRUE(jsonObj.find("data") != jsonObj.end());
+        ASSERT_TRUE(jsonObj.find("properties") != jsonObj.end());
+        
+
+        // Verify field values
+        ASSERT_EQ(jsonVal["id"].toInt(), 123);
+        ASSERT_EQ(jsonVal["name"].toString(), "test_object");
+        ASSERT_NEAR(jsonVal["value"].toDouble(), 45.67, 0.001);
+        ASSERT_TRUE(jsonVal["data"].isArray());
+        ASSERT_TRUE(jsonVal["properties"].isObject());
+    } else {
+        ASSERT_TRUE(false); // Should not reach here
+    }
 }
 
 TEST(PerformanceStruct_ComplexDataSerialization) {
@@ -75,12 +80,16 @@ TEST(PerformanceStruct_ComplexDataSerialization) {
     
     // Test map serialization
     ASSERT_TRUE(jsonVal["properties"].isObject());
-    auto props = jsonVal["properties"].toObject();
-    ASSERT_EQ(props.size(), 4);
-    ASSERT_EQ(props["type"].toString(), "test");
-    ASSERT_EQ(props["category"].toString(), "performance");
-    ASSERT_EQ(props["environment"].toString(), "debug");
-    ASSERT_EQ(props["version"].toString(), "1.0.0");
+    if(const auto& propsOpt = jsonVal["properties"].toObject()) {
+        const auto& props = propsOpt->get();
+        ASSERT_EQ(props.size(), 4);
+        ASSERT_EQ(props.at("type").toString(), "test");
+        ASSERT_EQ(props.at("category").toString(), "performance");
+        ASSERT_EQ(props.at("environment").toString(), "debug");
+        ASSERT_EQ(props.at("version").toString(), "1.0.0");
+    } else {
+        ASSERT_TRUE(false); // Should not reach here
+    }
 }
 
 TEST(PerformanceStruct_Deserialization) {

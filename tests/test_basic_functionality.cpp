@@ -29,12 +29,15 @@ TEST(BasicTypeSerialization) {
     
     auto jsonVal = obj.toJson();
     ASSERT_TRUE(jsonVal.isObject());
-    
-    auto& jsonObj = jsonVal.toObject();
-    ASSERT_EQ(true, jsonObj.at("flag").toBool());
-    ASSERT_EQ(42, jsonObj.at("integer").toInt());
-    ASSERT_NEAR(3.14159, jsonObj.at("decimal").toDouble(), 0.00001);
-    ASSERT_EQ("Hello World", jsonObj.at("text").toString());
+
+    if(const auto& jsonObj = jsonVal.toObject()) {
+        ASSERT_EQ(true, jsonObj->get().at("flag").toBool());
+        ASSERT_EQ(42, jsonObj->get().at("integer").toInt());
+        ASSERT_NEAR(3.14159, jsonObj->get().at("decimal").toDouble(), 0.00001);
+        ASSERT_EQ("Hello World", jsonObj->get().at("text").toString());
+    } else {
+        ASSERT_TRUE(false);
+    }
 }
 
 TEST(BasicTypeDeserialization) {
@@ -63,9 +66,12 @@ TEST(PersonSerialization) {
     auto jsonVal = person.toJson();
     ASSERT_TRUE(jsonVal.isObject());
     
-    auto& jsonObj = jsonVal.toObject();
-    ASSERT_EQ("Alice", jsonObj.at("name").toString());
-    ASSERT_EQ(30, jsonObj.at("age").toInt());
+    if(const auto& jsonObj = jsonVal.toObject()) {
+        ASSERT_EQ("Alice", jsonObj->get().at("name").toString());
+        ASSERT_EQ(30, jsonObj->get().at("age").toInt());
+    } else {
+        ASSERT_TRUE(false);
+    }
 }
 
 TEST(PersonRoundTrip) {

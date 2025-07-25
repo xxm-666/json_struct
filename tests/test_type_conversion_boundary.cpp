@@ -122,7 +122,12 @@ TEST(TypeConversion_ArrayConversions) {
     
     // 测试数组访问
     ASSERT_TRUE(arrayVal.isArray());
-    ASSERT_EQ(arrayVal.toArray().size(), 3);
+    if(const auto& arrOpt = arrayVal.toArray()) {
+        const auto& arr = arrOpt->get();
+        ASSERT_EQ(arr.size(), 3);
+    } else {
+        ASSERT_TRUE(false); // Should not reach here
+    }
     
     // 测试数组元素访问
     ASSERT_EQ(arrayVal[0].toInt(), 1);
@@ -135,13 +140,8 @@ TEST(TypeConversion_ArrayConversions) {
     
     // 测试非数组类型的数组转换
     JsonValue nonArray(42);
-    bool exceptionCaught = false;
-    try {
-        nonArray.toArray();
-    } catch (const std::exception&) {
-        exceptionCaught = true;
-    }
-    ASSERT_TRUE(exceptionCaught);
+    auto array = nonArray.toArray();
+    ASSERT_TRUE(!array.has_value());
 }
 
 TEST(TypeConversion_ObjectConversions) {
@@ -152,7 +152,12 @@ TEST(TypeConversion_ObjectConversions) {
     
     // 测试对象访问
     ASSERT_TRUE(objectVal.isObject());
-    ASSERT_EQ(objectVal.toObject().size(), 2);
+    if(const auto& objOpt = objectVal.toObject()) {
+        const auto& obj = objOpt->get();
+        ASSERT_EQ(obj.size(), 2);
+    } else {
+        ASSERT_TRUE(false); // Should not reach here
+    }
     
     // 测试对象属性访问
     ASSERT_EQ(objectVal["key1"].toString(), "value1");
@@ -164,13 +169,8 @@ TEST(TypeConversion_ObjectConversions) {
     
     // 测试非对象类型的对象转换
     JsonValue nonObject(42);
-    bool exceptionCaught = false;
-    try {
-        nonObject.toObject();
-    } catch (const std::exception&) {
-        exceptionCaught = true;
-    }
-    ASSERT_TRUE(exceptionCaught);
+    auto object = nonObject.toObject();
+    ASSERT_TRUE(!object.has_value()); // 应该返回空optional
 }
 
 TEST(BoundaryConditions_LargeStrings) {
@@ -195,14 +195,24 @@ TEST(BoundaryConditions_DeepNesting) {
         (*ptr)["level"] = JsonValue(i);
         (*ptr)["next"] = JsonValue(JsonValue::ObjectType{});
         // 通过 toObject() 获取持久引用，防止悬挂引用
-        ptr = &((*ptr).toObject().at("next"));
+        // ptr = &((*ptr).toObject().at("next"));
+        if(const auto& objOpt = ptr->toObject()) {
+            ptr = &(objOpt->get().at("next"));
+        } else {
+            ASSERT_TRUE(false); // Should not reach here
+        }
     }
     // 验证可以访问深层数据
     JsonValue* nav = &root;
     for (int i = 0; i < 100; ++i) {
         ASSERT_TRUE(nav->isObject());
         ASSERT_EQ((*nav)["level"].toInt(), i);
-        nav = &((*nav).toObject().at("next"));
+        // nav = &((*nav).toObject().at("next"));
+        if(const auto& nextOpt = nav->toObject()) {
+            nav = &(nextOpt->get().at("next"));
+        } else {
+            ASSERT_TRUE(false); // Should not reach here
+        }
     }
 }
 
@@ -239,8 +249,18 @@ TEST(BoundaryConditions_EmptyContainers) {
     ASSERT_TRUE(emptyArray.isArray());
     ASSERT_TRUE(emptyObject.isObject());
     
-    ASSERT_EQ(emptyArray.toArray().size(), 0);
-    ASSERT_EQ(emptyObject.toObject().size(), 0);
+    // ASSERT_EQ(emptyArray.toArray().size(), 0);
+    // ASSERT_EQ(emptyObject.toObject().size(), 0);
+    if(const auto& arrOpt = emptyArray.toArray()) {
+        ASSERT_EQ(arrOpt->get().size(), 0);
+    } else {
+        ASSERT_TRUE(false); // Should not reach here
+    }
+    if(const auto& objOpt = emptyObject.toObject()) {
+        ASSERT_EQ(objOpt->get().size(), 0);
+    } else {
+        ASSERT_TRUE(false); // Should not reach here
+    }
     
     // 测试空容器的访问
     ASSERT_TRUE(emptyArray[0].isNull() || emptyArray[0].dump() == "[]");

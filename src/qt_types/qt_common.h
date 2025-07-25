@@ -175,15 +175,15 @@ inline QJsonValue toQJsonValue(const JsonStruct::JsonValue& value) {
         return QJsonValue(value.toDouble());
     } else if (value.isString()) {
         return QJsonValue(QString::fromStdString(value.toString()));
-    } else if (value.isArray()) {
+    } else if (const auto& array = value.toArray()) {
         QJsonArray arr;
-        for (const auto& item : value.toArray()) {
+        for (const auto& item : array->get()) {
             arr.append(toQJsonValue(item));
         }
         return arr;
-    } else if (value.isObject()) {
+    } else if (const auto& object = value.toObject()) {
         QJsonObject obj;
-        for (const auto& [key, val] : value.toObject()) {
+        for (const auto& [key, val] : object->get()) {
             obj[QString::fromStdString(key)] = toQJsonValue(val);
         }
         return obj;

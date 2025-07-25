@@ -79,8 +79,8 @@ public:
             : func_(std::move(func)) {}
 
         JsonValue execute(const JsonValue& input) const override {
-            if (input.type() == JsonValue::Type::Array) {
-                return func_(input.toArray());
+            if(const auto& array = input.toArray()) {
+                return func_(*array);
             }
             return func_({input});
         }
@@ -161,9 +161,11 @@ public:
         return then([filter](const JsonValue& value) -> JsonValue {
             JsonValue result(JsonValue::ArrayType{});
             if (value.isArray()) {
-                for (const auto& item : value.toArray()) {
-                    if (filter(item)) {
-                        result.append(item);
+                if(const auto& arr = value.toArray()) {
+                    for (const auto& item : arr->get()) {
+                        if (filter(item)) {
+                            result.append(item);
+                        }
                     }
                 }
             } else if (filter(value)) {
@@ -177,8 +179,10 @@ public:
         return then([transform](const JsonValue& value) -> JsonValue {
             JsonValue result(JsonValue::ArrayType{});
             if (value.isArray()) {
-                for (const auto& item : value.toArray()) {
-                    result.append(transform(item));
+                if(const auto& arr = value.toArray()) {
+                    for (const auto& item : arr->get()) {
+                        result.append(transform(item));
+                    }
                 }
             } else {
                 result.append(transform(value));
@@ -190,7 +194,9 @@ public:
     JsonPipeline aggregateArray(const AggregateFunction& aggregate) {
         return then([aggregate](const JsonValue& value) -> JsonValue {
             if (value.isArray()) {
-                return aggregate(value.toArray());
+                if(const auto& arr = value.toArray()) {
+                    return aggregate(*arr);
+                }
             }
             return aggregate({value});
         });

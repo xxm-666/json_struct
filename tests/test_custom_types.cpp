@@ -57,8 +57,8 @@ void registerCustomTypes() {
         },
         // Deserialization function
         [](const JsonValue& json, const Point3D& defaultValue) -> Point3D {
-            if (json.isArray()) {
-                const auto& arr = json.toArray();
+            if (const auto& arrOpt = json.toArray()) {
+                const auto& arr = arrOpt->get();
                 if (arr.size() == 3) {
                     return Point3D(arr[0].toDouble(), arr[1].toDouble(), arr[2].toDouble());
                 }
@@ -86,8 +86,8 @@ void registerCustomTypes() {
         },
         // Deserialization function
         [](const JsonValue& json, const UserInfo& defaultValue) -> UserInfo {
-            if (json.isObject()) {
-                const auto& obj = json.toObject();
+            if (const auto& objOpt = json.toObject()) {
+                const auto& obj = objOpt->get();
                 UserInfo user;
                 
                 auto nameIt = obj.find("name");
@@ -102,9 +102,10 @@ void registerCustomTypes() {
                 
                 auto hobbiesIt = obj.find("hobbies");
                 if (hobbiesIt != obj.end() && hobbiesIt->second.isArray()) {
-                    const auto& hobbiesArr = hobbiesIt->second.toArray();
-                    for (size_t i = 0; i < hobbiesArr.size(); ++i) {
-                        user.hobbies.emplace_back(hobbiesArr[i].toString());
+                    if(const auto& hobbiesArr = hobbiesIt->second.toArray()) {
+                        for (const auto& hobby : hobbiesArr->get()) {
+                            user.hobbies.emplace_back(hobby.toString());
+                        }
                     }
                 }
                 
@@ -137,8 +138,8 @@ void registerCustomTypes() {
         },
         // Deserialization function
         [](const JsonValue& json, const ComplexData& defaultValue) -> ComplexData {
-            if (json.isObject()) {
-                const auto& obj = json.toObject();
+            if (const auto& objOpt = json.toObject()) {
+                const auto& obj = objOpt->get();
                 ComplexData data;
                 
                 auto posIt = obj.find("position");
@@ -153,9 +154,11 @@ void registerCustomTypes() {
                 
                 auto pathIt = obj.find("path");
                 if (pathIt != obj.end() && pathIt->second.isArray()) {
-                    const auto& pathArr = pathIt->second.toArray();
-                    for (size_t i = 0; i < pathArr.size(); ++i) {
-                        data.path.push_back(TypeRegistry::instance().fromJson<Point3D>(pathArr[i], Point3D()));
+                    if(const auto& pathArrOpt = pathIt->second.toArray()) {
+                        const auto & pathArr = pathArrOpt->get();
+                        for (const auto& item : pathArr) {
+                            data.path.push_back(TypeRegistry::instance().fromJson<Point3D>(item, Point3D()));
+                        }
                     }
                 }
                 

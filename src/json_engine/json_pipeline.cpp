@@ -28,10 +28,11 @@ JsonValue toString(const JsonValue& value) {
             {
                 std::stringstream ss;
                 ss << "[";
-                const auto& arr = value.toArray();
-                for (size_t i = 0; i < arr.size(); ++i) {
-                    if (i > 0) ss << ", ";
-                    ss << toString(arr[i]).toString();
+                if (const auto& arr = value.toArray()) {
+                    for (size_t i = 0; i < arr->get().size(); ++i) {
+                        if (i > 0) ss << ", ";
+                        ss << toString(arr->get()[i]).toString();
+                    }
                 }
                 ss << "]";
                 return JsonValue(ss.str());
@@ -78,9 +79,15 @@ JsonValue toBoolean(const JsonValue& value) {
         case JsonValue::Type::String:
             return JsonValue(!value.toString().empty());
         case JsonValue::Type::Array:
-            return JsonValue(!value.toArray().empty());
+            if (const auto& arr = value.toArray()) {
+                return JsonValue(!arr->get().empty());
+            }
+            return JsonValue(false);
         case JsonValue::Type::Object:
-            return JsonValue(!value.toObject().empty());
+            if (const auto& obj = value.toObject()) {
+                return JsonValue(!obj->get().empty());
+            }
+            return JsonValue(false);
         case JsonValue::Type::Null:
             return JsonValue(false);
         default:
@@ -93,16 +100,20 @@ JsonValue toImmutable(const JsonValue& value) {
         case JsonValue::Type::Array:
             {
                 JsonValue::ArrayType arr;
-                for (const auto& item : value.toArray()) {
-                    arr.push_back(toImmutable(item));
+                if(const auto& array = value.toArray()) {
+                    for (const auto& item : array->get()) {
+                        arr.push_back(toImmutable(item));
+                    }
                 }
                 return JsonValue(std::move(arr));
             }
         case JsonValue::Type::Object:
             {
                 JsonValue::ObjectType obj;
-                for (const auto& [key, val] : value.toObject()) {
-                    obj[key] = toImmutable(val);
+                if(const auto& objPtr = value.toObject()) {
+                    for (const auto& [key, val] : objPtr->get()) {
+                        obj[key] = toImmutable(val);
+                    }
                 }
                 return JsonValue(std::move(obj));
             }
@@ -146,15 +157,22 @@ bool isObject(const JsonValue& value) {
 }
 
 JsonStruct::JsonPipeline::FilterFunction arrayLengthGreaterThan(size_t minLength) {
-    return [minLength](const JsonValue& value) {
-        return value.type() == JsonValue::Type::Array && value.toArray().size() > minLength;
+    return [minLength](const JsonValue& value)->bool {
+        if (const auto& array = value.toArray()) {
+            const auto & arr = array->get();
+            return arr.size() > minLength;
+        }
+        return false;
     };
 }
 
 JsonStruct::JsonPipeline::FilterFunction objectHasKey(const std::string& key) {
-    return [key](const JsonValue& value) {
-        if (value.type() != JsonValue::Type::Object) return false;
-        return value.toObject().find(key) != value.toObject().end();
+    return [key](const JsonValue& value) -> bool {
+        if (const auto& objOpt = value.toObject()) {
+            const auto& obj = objOpt->get();
+            return obj.find(key) != obj.end();
+        }
+        return false;
     };
 }
 

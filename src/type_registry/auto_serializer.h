@@ -150,7 +150,10 @@ void fromJson(T& obj, const JsonStruct::JsonValue& json) {
     if constexpr (has_json_fields_v<T>) {
         if (json.isObject()) {
             constexpr auto size = tuple_size_helper<T>::value;
-            fromJsonImpl(obj, json.toObject(), std::make_index_sequence<size>{});
+            if(const auto& objOpt = json.toObject()) {
+                // Deserialize using index sequence
+                fromJsonImpl(obj, objOpt->get(), std::make_index_sequence<size>{});
+            }
         }
     }
 }

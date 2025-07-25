@@ -341,32 +341,32 @@ public:
         return toString(std::string(defaultValue));
     }
 
-    const ArrayType& toArray() const {
+    std::optional<std::reference_wrapper<const ArrayType>> toArray() const {
         if (auto* arr = getArray()) {
-            return *arr;
+            return std::cref(*arr);
         }
-        return {};  // Return empty array if not an array
+        return std::nullopt;  // Return nullopt if not an array
     }
 
-    ArrayType& toArray() {
+    std::optional<std::reference_wrapper<ArrayType>> toArray() {
         if (auto* arr = getArray()) {
-            return *arr;
+            return std::ref(*arr);
         }
-        throw std::runtime_error("JsonValue is not an array");
+        return std::nullopt;
     }
 
-    const ObjectType& toObject() const {
+    std::optional<std::reference_wrapper<const ObjectType>> toObject() const {
         if (auto* obj = getObject()) {
-            return *obj;
+            return std::cref(*obj);
         }
-        return {};  // Return empty object if not an object
+        return std::nullopt;  // Return nullopt if not an object
     }
 
-    ObjectType& toObject() {
+    std::optional<std::reference_wrapper<ObjectType>> toObject() {
         if (auto* obj = getObject()) {
-            return *obj;
+            return std::ref(*obj);
         }
-        throw std::runtime_error("JsonValue is not an object");
+        return std::nullopt;
     }
 
     // Array operations

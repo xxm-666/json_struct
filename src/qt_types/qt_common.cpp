@@ -71,9 +71,9 @@ QString qtBasicFromJson(const JsonValue& json, const QString& defaultValue) {
 }
 
 QStringList qtBasicFromJson(const JsonValue& json, const QStringList& defaultValue) {
-    if (json.isArray()) {
+    if (const auto& arr = json.toArray()) {
         QStringList result;
-        for (const auto& item : json.toArray()) {
+        for (const auto& item : arr->get()) {
             if (item.isString()) {
                 result.append(QString::fromStdString(item.toString()));
             }
@@ -84,8 +84,8 @@ QStringList qtBasicFromJson(const JsonValue& json, const QStringList& defaultVal
 }
 
 QPointF qtBasicFromJson(const JsonValue& json, const QPointF& defaultValue) {
-    if (json.isArray()) {
-        const auto& arr = json.toArray();
+    if (const auto& array = json.toArray()) {
+        const auto& arr = array->get();
         if (arr.size() >= 2 && arr[0].isNumber() && arr[1].isNumber()) {
             return QPointF(arr[0].toDouble(), arr[1].toDouble());
         }
@@ -94,8 +94,8 @@ QPointF qtBasicFromJson(const JsonValue& json, const QPointF& defaultValue) {
 }
 
 QRectF qtBasicFromJson(const JsonValue& json, const QRectF& defaultValue) {
-    if (json.isArray()) {
-        const auto& arr = json.toArray();
+    if (const auto& array = json.toArray()) {
+        const auto& arr = array->get();
         if (arr.size() >= 4) {
             return QRectF(arr[0].toDouble(), arr[1].toDouble(), 
                           arr[2].toDouble(), arr[3].toDouble());
@@ -105,8 +105,8 @@ QRectF qtBasicFromJson(const JsonValue& json, const QRectF& defaultValue) {
 }
 
 QRect qtBasicFromJson(const JsonValue& json, const QRect& defaultValue) {
-    if (json.isArray()) {
-        const auto& arr = json.toArray();
+    if (const auto& array = json.toArray()) {
+        const auto& arr = array->get();
         if (arr.size() >= 4) {
             return QRect(arr[0].toInt(), arr[1].toInt(), 
                          arr[2].toInt(), arr[3].toInt());
@@ -116,8 +116,8 @@ QRect qtBasicFromJson(const JsonValue& json, const QRect& defaultValue) {
 }
 
 QColor qtBasicFromJson(const JsonValue& json, const QColor& defaultValue) {
-    if (json.isArray()) {
-        const auto& arr = json.toArray();
+    if (const auto& array = json.toArray()) {
+        const auto& arr = array->get();
         if (arr.size() >= 4) {
             return QColor(arr[0].toInt(), arr[1].toInt(), 
                           arr[2].toInt(), arr[3].toInt());
@@ -127,8 +127,8 @@ QColor qtBasicFromJson(const JsonValue& json, const QColor& defaultValue) {
 }
 
 QSize qtBasicFromJson(const JsonValue& json, const QSize& defaultValue) {
-    if (json.isArray()) {
-        const auto& arr = json.toArray();
+    if (const auto& array = json.toArray()) {
+        const auto& arr = array->get();
         if (arr.size() >= 2) {
             return QSize(arr[0].toInt(), arr[1].toInt());
         }
@@ -137,8 +137,8 @@ QSize qtBasicFromJson(const JsonValue& json, const QSize& defaultValue) {
 }
 
 QSizeF qtBasicFromJson(const JsonValue& json, const QSizeF& defaultValue) {
-    if (json.isArray()) {
-        const auto& arr = json.toArray();
+    if (const auto& array = json.toArray()) {
+        const auto& arr = array->get();
         if (arr.size() >= 2) {
             return QSizeF(arr[0].toDouble(), arr[1].toDouble());
         }

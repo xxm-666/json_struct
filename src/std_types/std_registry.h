@@ -127,15 +127,16 @@ containerFromJson(const JsonValue& json, const Container& defaultValue) {
     }
     
     Container result;
-    const auto& arr = json.toArray();
-    
-    if constexpr (is_vector<Container>::value || is_deque<Container>::value) {
-        result.reserve(arr.size());
-    }
-    
-    for (const auto& item : arr) {
-        using ValueType = typename Container::value_type;
-        result.insert(result.end(), genericFromJsonValue(item, ValueType{}));
+    if(const auto& arrOpt = json.toArray()) {
+        const auto& arr = arrOpt->get();
+        if constexpr (is_vector<Container>::value || is_deque<Container>::value) {
+            result.reserve(arr.size());
+        }
+        
+        for (const auto& item : arr) {
+            using ValueType = typename Container::value_type;
+            result.insert(result.end(), genericFromJsonValue(item, ValueType{}));
+        }
     }
     
     return result;
@@ -161,13 +162,13 @@ containerFromJson(const JsonValue& json, const Container& defaultValue) {
     }
     
     Container result;
-    const auto& arr = json.toArray();
-    
-    for (const auto& item : arr) {
-        using ValueType = typename Container::value_type;
-        result.insert(genericFromJsonValue(item, ValueType{}));
+    if (const auto& arrOpt = json.toArray()) {
+        for (const auto& item : arrOpt->get()) {
+            using ValueType = typename Container::value_type;
+            result.insert(genericFromJsonValue(item, ValueType{}));
+        }
     }
-    
+
     return result;
 }
 
@@ -204,9 +205,8 @@ containerFromJson(const JsonValue& json, const Container& defaultValue) {
     
     /// If the key is of type string, parse from JSON object
     if constexpr (std::is_same_v<typename Container::key_type, std::string>) {
-        if (json.isObject()) {
-            const auto& obj = json.toObject();
-            for (const auto& [key, value] : obj) {
+        if (const auto& objOpt = json.toObject()) {
+            for (const auto& [key, value] : objOpt->get()) {
                 using ValueType = typename Container::mapped_type;
                 result[key] = genericFromJsonValue(value, ValueType{});
             }
@@ -214,16 +214,15 @@ containerFromJson(const JsonValue& json, const Container& defaultValue) {
     }
     /// Or parse from JSON array of arrays format [[key, value], ...]
     else {
-        if (json.isArray()) {
-            const auto& arr = json.toArray();
-            for (const auto& pairJson : arr) {
-                if (pairJson.isArray()) {
-                    const auto& pairArr = pairJson.toArray();
-                    if (pairArr.size() >= 2) {
+        if (const auto& arrOpt = json.toArray()) {
+            for (const auto& pairJson : arrOpt->get()) {
+                if (const auto& pairArr = pairJson.toArray()) {
+                    if (pairArr->size() >= 2) {
                         using KeyType = typename Container::key_type;
                         using ValueType = typename Container::mapped_type;
-                        auto key = genericFromJsonValue(pairArr[0], KeyType{});
-                        auto value = genericFromJsonValue(pairArr[1], ValueType{});
+                        auto pairValue = pairArr->get();
+                        auto key = genericFromJsonValue(pairValue[0], KeyType{});
+                        auto value = genericFromJsonValue(pairValue[1], ValueType{});
                         result[key] = value;
                     }
                 }
@@ -246,8 +245,8 @@ JsonValue pairToJson(const std::pair<T1, T2>& p) {
 /// Pair from JSON deserialization
 template<typename T1, typename T2>
 std::pair<T1, T2> pairFromJson(const JsonValue& json, const std::pair<T1, T2>& defaultValue) {
-    if (json.isArray()) {
-        const auto& arr = json.toArray();
+    if (const auto& arrOpt = json.toArray()) {
+        const auto& arr = arrOpt->get();
         if (arr.size() >= 2) {
             return std::make_pair(
                 genericFromJsonValue(arr[0], T1{}),
