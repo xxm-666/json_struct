@@ -1,6 +1,7 @@
 #include "../test_framework/test_framework.h"
 #include "../src/json_engine/json_filter.h"
 #include "../src/json_engine/json_value.h"
+#include "../src/json_engine/lazy_query_generator.h"
 #include <chrono>
 #include <iomanip>
 #include <vector>

@@ -6,7 +6,8 @@
 #include <optional>
 #include <utility>
 #include <memory>
-#include "json_filter.h" // Include the header for JsonFilter::LazyQueryGenerator
+
+#include "lazy_query_generator.h" // Use the new LazyQueryGenerator header
 
 namespace JsonStruct {
 
@@ -49,7 +50,7 @@ private:
     size_t totalGenerated_ = 0;
     
     // Cached results for streaming (lazy-loaded)
-    mutable std::unique_ptr<JsonFilter::LazyQueryGenerator> lazyGen_;
+    mutable std::unique_ptr<LazyQueryGenerator> lazyGen_;
     mutable std::vector<const JsonValue*> cachedResults_;
     mutable bool resultsLoaded_ = false;
 

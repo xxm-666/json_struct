@@ -78,6 +78,7 @@ set(CORE_SOURCES
     src/json_engine/json_path.cpp
     src/json_engine/json_filter.cpp
     src/json_engine/json_patch.cpp
+    src/json_engine/lazy_query_generator.cpp
     src/version.cpp
     src/json_engine/json_pipeline.cpp
 )
@@ -93,6 +94,7 @@ set(CORE_HEADERS
     src/json_engine/json_path.h
     src/json_engine/json_filter.h
     src/json_engine/json_pipeline.h
+    src/json_engine/lazy_query_generator.h
 )
 
 # 可选的Qt支持

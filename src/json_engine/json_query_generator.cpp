@@ -1,6 +1,6 @@
 #include "json_query_generator.h"
 #include "json_value.h"
-#include "json_filter.h"
+#include "lazy_query_generator.h"
 
 namespace JsonStruct {
 
@@ -21,7 +21,7 @@ void JsonQueryGenerator::reset() {
     
     // 创建真正的懒加载生成器
     static JsonFilter defaultFilter = JsonFilter::createDefault();
-    lazyGen_ = std::make_unique<JsonFilter::LazyQueryGenerator>(
+    lazyGen_ = std::make_unique<LazyQueryGenerator>(
         defaultFilter.queryGenerator(*root_, expression_, options_.maxResults)
     );
 }

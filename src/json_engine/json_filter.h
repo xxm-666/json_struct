@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include "json_value.h"
 #include "json_path.h"
 #include <functional>
@@ -20,6 +21,8 @@
  */
 
 namespace JsonStruct {
+
+class LazyQueryGenerator;
 
 /**
  * @brief Query result structure
@@ -56,218 +59,199 @@ struct JsonFilterOptions {
  * @brief JSON filter and query processor
  */
 class JsonFilter {
+
 public:
     /**
-     * @brief Create a default JsonFilter instance
+     * @brief Create a JsonFilter instance with default options.
+     * @return Default JsonFilter instance.
+     * @note Recommended for quickly obtaining a standard filter.
      */
     static JsonFilter createDefault();
 
     /**
-     * @brief Create a JsonFilter instance with options
+     * @brief Create a JsonFilter instance with custom options.
+     * @param options Filter configuration options.
+     * @return JsonFilter instance.
+     * @note Options include case sensitivity, max depth, optimizations, etc.
      */
     static JsonFilter createWithOptions(const JsonFilterOptions& options);
 
     /**
-     * @brief Constructor
+     * @brief Constructor.
+     * @param options Filter configuration options (optional).
      */
     explicit JsonFilter(const JsonFilterOptions& options = {});
 
     /**
-     * @brief Query JSON data using a JSONPath expression
-     * @param jsonValue The JSON value to query
-     * @param expression JSONPath expression (e.g. "$.store.book[*].title")
-     * @return Vector of query results
+     * @brief Query JSON data using a JSONPath expression.
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression (e.g. "$.store.book[*].title").
+     * @return Vector of QueryResult for all matches.
+     * @throws std::runtime_error If the expression is invalid or query fails.
+     * @note Supports standard JSONPath syntax.
+     * @see queryGenerator()
+     * @code
+     * auto results = filter.query(json, "$.store.book[*].title");
+     * for (const auto& r : results) { std::cout << r.path << std::endl; }
+     * @endcode
      */
     std::vector<QueryResult> query(const JsonValue& jsonValue, const std::string& expression) const;
 
     /**
-     * @brief Query JSON data using a JSONPath expression (fast path optimization version)
-     * @param jsonValue The JSON value to query
-     * @param expression JSONPath expression
-     * @param maxResults Maximum number of results, 0 means unlimited
-     * @return Vector of query results
+     * @brief Fast query using JSONPath expression (optimized for large arrays).
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression.
+     * @param maxResults Maximum number of results to return (0 for unlimited).
+     * @return Vector of QueryResult for all matches.
+     * @note Uses efficient traversal for large data sets.
      */
     std::vector<QueryResult> queryFast(const JsonValue& jsonValue, const std::string& expression, size_t maxResults = 0) const;
 
     /**
-     * @brief Query JSON data using a custom filter function
-     * @param jsonValue The JSON value to query
-     * @param filter Filter function
-     * @return Vector of query results
+     * @brief Query JSON data using a custom filter function.
+     * @param jsonValue The JSON value to query.
+     * @param filter Filter function, returns true for match.
+     * @return Vector of QueryResult for all matches.
+     * @note Useful for complex custom filtering.
      */
     std::vector<QueryResult> query(const JsonValue& jsonValue, const FilterFunction& filter) const;
 
     /**
-     * @brief Find the first match
-     * @param jsonValue The JSON value to query
-     * @param expression JSONPath expression
-     * @return The first matching result, or nullopt if not found
+     * @brief Query the first match using a JSONPath expression.
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression.
+     * @return The first QueryResult if found, otherwise std::nullopt.
+     * @note For use cases where only the first match is needed.
      */
     std::optional<QueryResult> queryFirst(const JsonValue& jsonValue, const std::string& expression) const;
 
     /**
-     * @brief Check if a path exists
-     * @param jsonValue The JSON value to check
-     * @param expression JSONPath expression
-     * @return Returns true if the path exists
+     * @brief Check if a path exists in the JSON value.
+     * @param jsonValue The JSON value to check.
+     * @param expression JSONPath expression.
+     * @return True if the path exists, false otherwise.
+     * @note Equivalent to whether queryFirst() returns a value.
      */
     bool exists(const JsonValue& jsonValue, const std::string& expression) const;
 
     /**
-     * @brief Count the number of matches
-     * @param jsonValue The JSON value to query
-     * @param expression JSONPath expression
-     * @return Number of matches
+     * @brief Count the number of matches for a JSONPath expression.
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression.
+     * @return Number of matches.
+     * @note Fast way to count matches without retrieving all results.
      */
     size_t count(const JsonValue& jsonValue, const std::string& expression) const;
 
-    // Backward compatibility methods (used by JsonValue)
+    // Backward compatibility methods (for JsonValue, etc.)
+
     /**
-     * @brief Check if a path exists (backward compatibility)
+     * @brief Check if a path exists (legacy interface).
+     * @param jsonValue The JSON value to check.
+     * @param expression JSONPath expression.
+     * @return True if the path exists, false otherwise.
+     * @deprecated Use exists() instead.
      */
     bool pathExists(const JsonValue& jsonValue, const std::string& expression) const;
-    
+
     /**
-     * @brief Select the first matching value (backward compatibility)
+     * @brief Select the first matching value (legacy interface).
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression.
+     * @return Pointer to the first matching value, or nullptr if not found.
+     * @deprecated Use queryFirst() instead.
      */
     const JsonValue* selectFirst(const JsonValue& jsonValue, const std::string& expression) const;
-    
+
     /**
-     * @brief Select all matching values (backward compatibility)
+     * @brief Select all matching values (legacy interface).
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression.
+     * @return Vector of pointers to all matching values.
+     * @deprecated Use query() instead.
      */
     std::vector<const JsonValue*> selectAll(const JsonValue& jsonValue, const std::string& expression) const;
-    
+
     /**
-     * @brief Select all matching value copies (backward compatibility)
+     * @brief Select copies of all matching values (legacy interface).
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression.
+     * @return Vector of copies of all matching values.
+     * @deprecated Use query() instead.
      */
     std::vector<JsonValue> selectValues(const JsonValue& jsonValue, const std::string& expression) const;
 
-    // Path construction helper functions
+    // Path construction helpers
+
+    /**
+     * @brief Build a property path.
+     * @param basePath The base path.
+     * @param property The property name.
+     * @return The full path string.
+     * @note Used to generate paths like "$.a.b".
+     */
     std::string buildPath(const std::string& basePath, const std::string& property) const;
+
+    /**
+     * @brief Build an array index path.
+     * @param basePath The base path.
+     * @param index The array index.
+     * @return The full path string.
+     * @note Used to generate paths like "$.a[0]".
+     */
     std::string buildArrayPath(const std::string& basePath, size_t index) const;
-    
-    // Internal matching function
+
+    // Internal matching helper
+
+    /**
+     * @brief Check if a value matches the filter condition.
+     * @param value The JSON value to check.
+     * @param path The current path of the value.
+     * @param filter The filter function.
+     * @return True if matches, false otherwise.
+     * @note Used for internal recursive traversal.
+     */
     bool matchesFilter(const JsonValue& value, const std::string& path, const FilterFunction& filter) const;
-    
-    // Fast path optimization helper
+
+    // Optimized array traversal
+
+    /**
+     * @brief Efficient traversal for large arrays.
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression.
+     * @param maxResults Maximum number of results.
+     * @return Vector of QueryResult for all matches.
+     * @note
+     * Usage requirements:
+     * - Intended for scenarios where the root node is a JSON array and the query expression targets array elements directly (e.g., "$.items[*]").
+     * - For best performance, use when the array is large and only a subset of results is needed (early termination).
+     * - Not suitable for deeply nested or non-array root queries; use query() or queryFast() in those cases.
+     * - The function may bypass some general JSONPath features for speed, so ensure the expression is compatible.
+     * - Automatically selects the optimal strategy internally, but caller should ensure input fits the above pattern.
+     */
     std::vector<QueryResult> optimizedArrayTraversal(const JsonValue& jsonValue, const std::string& expression, size_t maxResults) const;
 
     /**
-     * @brief Lazy query generator class
-     *
-     * This class implements true lazy evaluation for JSONPath queries, based on the proven implementation
-     * from LazyJsonPathIterator. It provides on-demand calculation with full state preservation,
-     * achieving significant performance improvements for partial result scenarios.
-     *
-     * Features:
-     * - True lazy evaluation: calculates one result per next() call
-     * - Complete state preservation: supports pause/resume at any point  
-     * - Memory efficient: no pre-loading of results
-     * - Early termination: stops computation when iteration stops
-     * - Reuses json_path module for parsing and validation
-     *
-     * @example
-     * auto generator = filter.queryGenerator(json, "$.store.book[*].title");
-     * while (generator.hasNext()) {
-     *     auto result = generator.next();
-     *     if (someCondition) break; // Early termination saves computation
-     * }
-     */
-public:
-    class LazyQueryGenerator {
-    public:
-        // Constructor for JSONPath expressions
-        LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, const std::string& expression);
-
-        // Constructor for FilterFunction (backward compatibility)
-        LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, FilterFunction func);
-
-        // Constructor for optimized lazy loading with early termination hints
-        LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, const std::string& expression, size_t maxResults);
-
-        // Check if there is a next item
-        bool hasNext() const;
-
-        // Get the next result with true lazy evaluation
-        QueryResult next();
-
-        // Get multiple results at once for better performance
-        std::vector<QueryResult> nextBatch(size_t maxCount = 10);
-
-    private:
-        // Enhanced frame structure for stateful lazy evaluation
-        struct Frame {
-            const JsonValue* value;
-            std::string path;
-            size_t nodeIndex = 0;
-            
-            // Recursive descent state management
-            enum class RecursiveState { None, SearchingSelf, SearchingChildren };
-            RecursiveState recursiveState = RecursiveState::None;
-            std::string recursiveProperty;
-            
-            // Children storage for recursive processing
-            std::vector<std::pair<std::string, const JsonValue*>> children;
-            
-            // Optimized child iteration state (iterator-based)
-            size_t childIndex = 0;
-            
-            // Array iteration state (for slice operations)
-            size_t arrayIndex = 0;
-            size_t arraySize = 0;
-            
-            Frame(const JsonValue* v, const std::string& p, size_t ni) 
-                : value(v), path(p), nodeIndex(ni) {}
-        };
-
-        const JsonFilter* filter_;
-        const JsonValue* root_;
-        std::string expression_;
-        FilterFunction filterFunc_;
-        bool useFilterFunc_ = false;
-        bool initialized_ = false;
-        
-        // JSONPath components (reusing json_path module)
-        std::unique_ptr<jsonpath::JsonPath> jsonPath_;
-        std::vector<jsonpath::PathNode> nodes_;
-        
-        // Lazy evaluation state
-        std::stack<Frame> stack_;
-        std::optional<QueryResult> current_;
-        
-        // Optimization hints
-        size_t maxResults_ = 0;  // 0 means unlimited
-        size_t resultCount_ = 0; // Current result count
-
-        void initialize();
-        void advance();
-        
-        // Helper method for FilterFunction mode
-        void expandFrameChildren(const Frame& frame);
-        
-        // Node processing methods (adapted from LazyJsonPathIterator)
-        bool processNode(Frame& frame, const jsonpath::PathNode& node);
-        bool processProperty(Frame& frame, const std::string& property);
-        bool processIndex(Frame& frame, int index);
-        bool processSlice(Frame& frame, int start, int end);
-        bool processWildcard(Frame& frame);
-        bool processRecursive(Frame& frame, const std::string& property);
-    };
-    
-    /**
-     * @brief Modern lazy query generator (recommended)
-     * @param jsonValue The JSON value to query
-     * @param expression JSONPath expression
-     * @param maxResults Maximum number of results, used for intelligent optimization strategy selection
-     * @return High-performance lazy query generator
+     * @brief Modern lazy query generator (recommended).
+     * @param jsonValue The JSON value to query.
+     * @param expression JSONPath expression.
+     * @param maxResults Maximum number of results for optimization.
+     * @return High-performance lazy query generator.
+     * @note Supports pause/resume, early termination, memory efficiency.
+     * @see LazyQueryGenerator
+     * @code
+     * auto gen = filter.queryGenerator(json, "$.a[*]");
+     * while (gen.hasNext()) { auto r = gen.next(); ... }
+     * @endcode
      */
     LazyQueryGenerator queryGenerator(const JsonValue& jsonValue, const std::string& expression, size_t maxResults = 0) const;
 
     /**
-     * @brief Lazy query generator based on filter function
-     * @param jsonValue The JSON value to query
-     * @param filter Custom filter function
-     * @return Lazy query generator
+     * @brief Lazy query generator based on filter function.
+     * @param jsonValue The JSON value to query.
+     * @param filter Custom filter function.
+     * @return Lazy query generator.
+     * @note Suitable for complex custom scenarios.
      */
     LazyQueryGenerator queryGenerator(const JsonValue& jsonValue, const FilterFunction& filter) const;
 

@@ -2,7 +2,7 @@
 #include "../test_framework/test_framework.h"
 #include "json_engine/json_filter.h"
 #include "json_engine/json_value.h"
-
+#include "json_engine/lazy_query_generator.h"
 using namespace JsonStruct;
 using namespace JsonStruct::literals;
 
