@@ -76,6 +76,26 @@ add_executable(test_error_handling tests/test_error_handling.cpp)
 target_link_libraries(test_error_handling PRIVATE test_framework json_struct)
 target_compile_features(test_error_handling PRIVATE cxx_std_17)
 
+# 超大/超深嵌套对象与数组测试
+add_executable(test_large_deep_nested_objects tests/test_large_deep_nested_objects.cpp)
+target_link_libraries(test_large_deep_nested_objects PRIVATE test_framework json_struct)
+target_compile_features(test_large_deep_nested_objects PRIVATE cxx_std_17)
+
+# 多线程并发读写测试
+add_executable(test_multithreaded_concurrency tests/test_multithreaded_concurrency.cpp)
+target_link_libraries(test_multithreaded_concurrency PRIVATE test_framework json_struct)
+target_compile_features(test_multithreaded_concurrency PRIVATE cxx_std_17)
+
+# 极端异常场景测试
+add_executable(test_extreme_exception_scenarios tests/test_extreme_exception_scenarios.cpp)
+target_link_libraries(test_extreme_exception_scenarios PRIVATE test_framework json_struct)
+target_compile_features(test_extreme_exception_scenarios PRIVATE cxx_std_17)
+
+# 性能极限测试
+add_executable(test_performance_limits tests/test_performance_limits.cpp)
+target_link_libraries(test_performance_limits PRIVATE test_framework json_struct)
+target_compile_features(test_performance_limits PRIVATE cxx_std_17)
+
 # 复杂嵌套容器测试
 add_executable(test_complex_nested_containers tests/test_complex_nested_containers.cpp)
 target_link_libraries(test_complex_nested_containers PRIVATE test_framework json_struct)
@@ -204,6 +224,8 @@ add_custom_target(run_core_tests
     DEPENDS test_core_functionality test_json_auto test_enhanced_features 
             test_custom_types test_json_parsing test_error_recovery 
             test_performance_struct test_special_numbers test_json_pointer
+            test_large_deep_nested_objects test_multithreaded_concurrency
+            test_extreme_exception_scenarios test_performance_limits
     COMMENT "Running core migrated tests"
 )
 
@@ -216,7 +238,8 @@ add_custom_target(build_all_tests
             test_error_handling test_complex_nested_containers test_all_runner
             test_minimal_jsonvalue test_json_path_basic
             test_json_path_mutable test_serialization_simple test_type_conversion_boundary test_minimal_jsonvalue test_json_query_generator test_json_pipeline test_version version_info test_comprehensive_spaced
-            test_spaced_properties
+            test_spaced_properties test_large_deep_nested_objects test_multithreaded_concurrency
+            test_extreme_exception_scenarios test_performance_limits
     COMMENT "Building all core test executables" 
 )
 

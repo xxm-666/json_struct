@@ -217,10 +217,10 @@ containerFromJson(const JsonValue& json, const Container& defaultValue) {
         if (const auto& arrOpt = json.toArray()) {
             for (const auto& pairJson : arrOpt->get()) {
                 if (const auto& pairArr = pairJson.toArray()) {
-                    if (pairArr->size() >= 2) {
+                    auto pairValue = pairArr->get();
+                    if (pairValue.size() >= 2) {
                         using KeyType = typename Container::key_type;
                         using ValueType = typename Container::mapped_type;
-                        auto pairValue = pairArr->get();
                         auto key = genericFromJsonValue(pairValue[0], KeyType{});
                         auto value = genericFromJsonValue(pairValue[1], ValueType{});
                         result[key] = value;

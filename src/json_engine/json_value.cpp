@@ -88,6 +88,20 @@ void JsonValue::dumpImpl(std::ostream& os, const SerializeOptions& options, int 
     });
 }
 
+bool JsonValue::utf8Check(ParseContext& ctx, std::string_view str)
+{
+    // Validate UTF-8 (if enabled)
+    if (ctx.options.validateUtf8) {
+        std::string_view toCheck(str);
+        if (!isValidUtf8(toCheck)) {
+            ctx.setError(JsonErrc::Utf8Error, "Invalid UTF-8 sequence at " + ctx.locationInfo());
+            return false;
+        }
+    }
+
+    return true;
+}
+
 std::string JsonValue::escapeString(std::string_view str, bool escapeUnicode) {
     std::string result;
     result.reserve(str.size() + str.size() / 4);
@@ -599,14 +613,6 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
                 ctx.advance(c);
                 continue;
             }
-            // Validate UTF-8 (if enabled)
-            if (ctx.options.validateUtf8 && static_cast<unsigned char>(c) >= 0x80) {
-                std::string_view toCheck(result);
-                if (!isValidUtf8(toCheck)) {
-                    ctx.setError(JsonErrc::Utf8Error, "Invalid UTF-8 sequence at " + ctx.locationInfo());
-                    return JsonValue{};
-                }
-            }
             result += c;
             ctx.advance(c);
         }
@@ -617,6 +623,9 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
         return JsonValue{};
     }
     
+    if (!utf8Check(ctx, result))
+        return JsonValue{};
+
     ctx.advance(ctx.peek()); // skip closing quote
     return JsonValue(std::move(result));
 }
@@ -843,16 +852,11 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
         try {
             // Try to parse key-value pair
             if (ctx.peek() != '"') {
-                if (ctx.options.allowRecovery) {
-                    // Skip until valid key or object end
-                    while (ctx.hasMore() && ctx.peek() != '"' && ctx.peek() != '}') {
-                        ctx.advance(ctx.peek());
-                    }
-                    if (!ctx.hasMore() || ctx.peek() == '}') continue;
-                } else {
-                    ctx.setError(JsonErrc::UnexpectedCharacter, "Expected string key at " + ctx.locationInfo());
-                    return JsonValue{};
+                // Skip until valid key or object end
+                while (ctx.hasMore() && ctx.peek() != '"' && ctx.peek() != '}') {
+                    ctx.advance(ctx.peek());
                 }
+                if (!ctx.hasMore() || ctx.peek() == '}') continue;
             }
 
             auto keyValue = parseString(ctx);
@@ -861,16 +865,11 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
             skipWhitespace(ctx);
 
             if (!ctx.hasMore() || ctx.peek() != ':') {
-                if (ctx.options.allowRecovery) {
-                    // Skip until colon
-                    while (ctx.hasMore() && ctx.peek() != ':' && ctx.peek() != '}' && ctx.peek() != ',') {
-                        ctx.advance(ctx.peek());
-                    }
-                    if (!ctx.hasMore() || ctx.peek() != ':') continue;
-                } else {
-                    ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ':' at " + ctx.locationInfo());
-                    return JsonValue{};
+                // Skip until colon
+                while (ctx.hasMore() && ctx.peek() != ':' && ctx.peek() != '}' && ctx.peek() != ',') {
+                    ctx.advance(ctx.peek());
                 }
+                if (!ctx.hasMore() || ctx.peek() != ':') continue;
             }
             ctx.advance(ctx.peek()); // skip ':'
 
@@ -879,11 +878,6 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
             obj.emplace(std::move(key), std::move(value));
 
         } catch (const std::exception&) {
-            if (!ctx.options.allowRecovery) {
-                ctx.setError(JsonErrc::ParseError, "Error parsing key-value pair at " + ctx.locationInfo());
-                return JsonValue{};
-            }
-            // In recovery mode, skip current key-value pair
             while (ctx.hasMore() && ctx.peek() != ',' && ctx.peek() != '}') {
                 ctx.advance(ctx.peek());
             }
@@ -911,12 +905,9 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
                     break;
                 }
             }
-        } else if (ctx.options.allowRecovery) {
+        } else {
             // Skip unexpected character in recovery mode
             ctx.advance(c);
-        } else {
-            ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ',' or '}' at " + ctx.locationInfo());
-            return JsonValue{};
         }
     }
 
@@ -959,10 +950,6 @@ JsonValue JsonValue::parseArrayWithRecovery(ParseContext& ctx) {
             // Try to parse value
             arr.emplace_back(parseValue(ctx));
         } catch (const std::exception&) {
-            if (!ctx.options.allowRecovery) {
-                ctx.setError(JsonErrc::ParseError, "Error parsing array element at " + ctx.locationInfo());
-                return JsonValue{};
-            }
             // In recovery mode, skip invalid value and add null as placeholder
             while (ctx.hasMore() && ctx.peek() != ',' && ctx.peek() != ']') {
                 ctx.advance(ctx.peek());
@@ -992,12 +979,9 @@ JsonValue JsonValue::parseArrayWithRecovery(ParseContext& ctx) {
                     break;
 				}
             }
-        } else if (ctx.options.allowRecovery) {
+        } else {
             // Skip unexpected character in recovery mode
             ctx.advance(c);
-        } else {
-            ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ',' or ']' at " + ctx.locationInfo());
-            return JsonValue{};
         }
     }
     

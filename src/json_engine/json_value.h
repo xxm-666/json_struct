@@ -56,15 +56,9 @@ public:
         bool allowComments = false;     // Allow comments (JSON5 style)
         bool allowTrailingCommas = false; // Allow trailing commas
         bool strictMode = true;         // Strict mode
-        bool validateUtf8 = true;       // Validate UTF-8 encoding
+        bool validateUtf8 = false;       // Validate UTF-8 encoding
         bool allowSpecialNumbers = false; // Allow NaN/Infinity and other special numbers
         bool allowRecovery = false;     // Allow error recovery (lenient parsing)
-
-        ParseOptions()
-        : maxDepth(512), allowComments(false),
-          allowTrailingCommas(false), strictMode(true),
-          validateUtf8(true), allowSpecialNumbers(false),
-          allowRecovery(false) {}
     };
 
     // Serialization options
@@ -75,11 +69,6 @@ public:
         bool compactArrays = false;     // Compact array formatting
         size_t maxPrecision = 15;       // Floating point precision
         bool allowSpecialNumbers = false; // Serialize special numbers
-
-        SerializeOptions()
-        : indent(-1), sortKeys(false),
-          escapeUnicode(false), compactArrays(false),
-          maxPrecision(15), allowSpecialNumbers(false) {}
     };
 
 private:
@@ -418,8 +407,8 @@ public:
         return nullValue;
     }
 
-    // Object operations
-    JsonValue& operator[](std::string_view key) {
+    // Only use in writing context, never throw exceptions
+    JsonValue& operator[](std::string_view key){
         if (!isObject()) {
             value_ = ObjectType{};
         }
@@ -642,6 +631,7 @@ private:
     
     // Serialization implementation
     void dumpImpl(std::ostream& os, const SerializeOptions& options, int currentIndent) const;
+    static bool utf8Check(ParseContext& ctx, std::string_view str);
 public:
     static std::string escapeString(std::string_view str, bool escapeUnicode = false);
 private:    

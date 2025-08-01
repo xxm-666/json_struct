@@ -49,6 +49,10 @@ public:
             "test_serialization_simple.exe",
             "test_type_conversion_boundary.exe",
 			"test_json_path_advanced.exe",
+			"test_extreme_exception_scenarios.exe",
+			"test_large_deep_nested_objects.exe",
+			"test_multithreaded_concurrency.exe",
+			"test_performance_limits.exe",
         };
     }
 

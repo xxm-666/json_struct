@@ -18,6 +18,24 @@
   - JSON格式版本信息输出
   - 完整的测试套件和演示程序
 
+- ✅ **极限性能与极端边界测试**
+  - 百万级对象序列化/反序列化性能测试
+  - 千万级基础类型数组序列化/解析性能测试
+  - 复杂嵌套结构极限测试
+  - 并发读写与异常安全性测试
+  - 自动化测试覆盖极端场景
+
+### 性能与极端测试
+
+- 新增 `test_performance_limits.cpp`，覆盖如下：
+  - `Performance_SerializeMillionObjects`：100万对象序列化5秒内
+  - `Performance_ParseMillionObjects`：100万对象解析5秒内
+  - `Performance_SerializeLargeArray`：1000万数组序列化3秒内
+  - `Performance_ParseLargeArray`：1000万数组解析3秒内
+  - `Performance_ComplexNestedStructure`：百万级复杂嵌套结构序列化/解析5秒内
+  - 所有测试均在Release模式下通过
+  - 并发与异常测试见 `test_multithreaded_concurrency.cpp`
+
 ### 版本管理功能详细说明
 
 - **核心API**：
