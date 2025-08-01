@@ -413,20 +413,20 @@ JsonValue JsonValue::parseSpecialNumber(ParseContext& ctx) {
 }
 
 std::string JsonValue::parseUnicodeEscape(std::string_view str, size_t& pos) {
-    if (pos + 5 >= str.length()) {
+    if (pos + 6 >= str.length()) {
         throw std::runtime_error("Invalid Unicode escape sequence: too short");
     }
     
     std::string hexStr(str.substr(pos + 2, 4));
-    pos += 6; // Skip \uXXXX
     
     // Parse hexadecimal
     unsigned int codepoint;
     auto [ptr, ec] = std::from_chars(hexStr.data(), hexStr.data() + 4, codepoint, 16);
-    if (ec != std::errc{}) {
+    if (ec != std::errc{} || ptr != hexStr.data() + 4) {
         throw std::runtime_error("Invalid Unicode escape sequence: '" + hexStr + "'");
     }
-    
+    pos += 6; // Skip \uXXXX
+
     // Handle surrogate pairs for UTF-16
     if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
         // High surrogate, need following low surrogate
@@ -591,13 +591,21 @@ JsonValue JsonValue::parseString(ParseContext& ctx) {
         } else {
             // support multi-line strings: allow actual newline characters in string content
             if (c == '\n' || c == '\r') {
+                if(ctx.options.strictMode) {
+                    ctx.setError(JsonErrc::ParseError, "Strict Mode not allowed multi line string at " + ctx.locationInfo());
+                    return JsonValue{};
+				}
                 result += c;
                 ctx.advance(c);
                 continue;
             }
             // Validate UTF-8 (if enabled)
             if (ctx.options.validateUtf8 && static_cast<unsigned char>(c) >= 0x80) {
-                // Simple UTF-8 validation
+                std::string_view toCheck(result);
+                if (!isValidUtf8(toCheck)) {
+                    ctx.setError(JsonErrc::Utf8Error, "Invalid UTF-8 sequence at " + ctx.locationInfo());
+                    return JsonValue{};
+                }
             }
             result += c;
             ctx.advance(c);
@@ -669,9 +677,14 @@ JsonValue JsonValue::parseArray(ParseContext& ctx) {
             }
             
             // Handle trailing comma
-            if (ctx.options.allowTrailingCommas && ctx.hasMore() && ctx.peek() == ']') {
-                ctx.advance(ctx.peek());
-                break;
+            if (ctx.options.allowTrailingCommas) {
+                while (ctx.hasMore() && ctx.peek() == ',' && ctx.peek() != ']') {
+                    ctx.advance(ctx.peek());
+                }
+                if (ctx.hasMore() && ctx.peek() == ']') {
+                    ctx.advance(ctx.peek());
+                    break;
+                }
             }
         } else {
             ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ',' or ']' at " + ctx.locationInfo());
@@ -696,10 +709,10 @@ JsonValue JsonValue::parseObject(ParseContext& ctx) {
 
     ObjectType obj;
     skipWhitespace(ctx);
-    if (ctx.hasError()) {
-        --ctx.depth;
-        return JsonValue{};
-    }
+    // if (ctx.hasError()) {
+    //     --ctx.depth;
+    //     return JsonValue{};
+    // }
 
     // Empty object
     if (ctx.hasMore() && ctx.peek() == '}') {
@@ -775,9 +788,14 @@ JsonValue JsonValue::parseObject(ParseContext& ctx) {
             }
 
             // Handle trailing comma
-            if (ctx.options.allowTrailingCommas && ctx.hasMore() && ctx.peek() == '}') {
-                ctx.advance(ctx.peek());
-                break;
+            if (ctx.options.allowTrailingCommas) {
+                while (ctx.hasMore() && ctx.peek() == ',' && ctx.peek() != '}') {
+                    ctx.advance(ctx.peek());
+                }
+                if (ctx.hasMore() && ctx.peek() == '}') {
+                    ctx.advance(ctx.peek());
+                    break;
+                }
             }
         } else {
             ctx.setError(JsonErrc::UnexpectedCharacter, "Expected ',' or '}' at " + ctx.locationInfo());
@@ -862,7 +880,8 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
 
         } catch (const std::exception&) {
             if (!ctx.options.allowRecovery) {
-                throw;
+                ctx.setError(JsonErrc::ParseError, "Error parsing key-value pair at " + ctx.locationInfo());
+                return JsonValue{};
             }
             // In recovery mode, skip current key-value pair
             while (ctx.hasMore() && ctx.peek() != ',' && ctx.peek() != '}') {
@@ -883,9 +902,14 @@ JsonValue JsonValue::parseObjectWithRecovery(ParseContext& ctx) {
             skipWhitespace(ctx);
 
             // Handle trailing comma
-            if (ctx.options.allowTrailingCommas && ctx.hasMore() && ctx.peek() == '}') {
-                ctx.advance(ctx.peek());
-                break;
+            if (ctx.options.allowTrailingCommas) {
+                while (ctx.hasMore() && ctx.peek() == ',' && ctx.peek() != '}') {
+                    ctx.advance(ctx.peek());
+                }
+                if (ctx.hasMore() && ctx.peek() == '}') {
+                    ctx.advance(ctx.peek());
+                    break;
+                }
             }
         } else if (ctx.options.allowRecovery) {
             // Skip unexpected character in recovery mode
@@ -936,7 +960,8 @@ JsonValue JsonValue::parseArrayWithRecovery(ParseContext& ctx) {
             arr.emplace_back(parseValue(ctx));
         } catch (const std::exception&) {
             if (!ctx.options.allowRecovery) {
-                throw;
+                ctx.setError(JsonErrc::ParseError, "Error parsing array element at " + ctx.locationInfo());
+                return JsonValue{};
             }
             // In recovery mode, skip invalid value and add null as placeholder
             while (ctx.hasMore() && ctx.peek() != ',' && ctx.peek() != ']') {
@@ -958,9 +983,14 @@ JsonValue JsonValue::parseArrayWithRecovery(ParseContext& ctx) {
             skipWhitespace(ctx);
             
             // Handle trailing comma
-            if (ctx.options.allowTrailingCommas && ctx.hasMore() && ctx.peek() == ']') {
-                ctx.advance(ctx.peek());
-                break;
+            if (ctx.options.allowTrailingCommas) {
+                while(ctx.hasMore() && ctx.peek() == ',' && ctx.peek() != ']') {
+                    ctx.advance(ctx.peek());
+				}
+                if(ctx.hasMore() && ctx.peek() == ']') {
+                    ctx.advance(ctx.peek());
+                    break;
+				}
             }
         } else if (ctx.options.allowRecovery) {
             // Skip unexpected character in recovery mode

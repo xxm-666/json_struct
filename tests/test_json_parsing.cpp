@@ -1,4 +1,4 @@
-// 迁移的JSON解析测试 - JSON Parsing Precision Tests
+﻿// 迁移的JSON解析测试 - JSON Parsing Precision Tests
 #include "../src/jsonstruct.h"
 #include "test_framework.h"
 #include <iostream>
@@ -196,6 +196,61 @@ TEST(JsonValue_EscapeString_UnicodeVariants) {
     ASSERT_EQ(JsonValue::escapeString("A中€😀", true), "A\\u4e2d\\u20ac\\ud83d\\ude00");
     ASSERT_EQ(JsonValue::escapeString("😀😁😂", true), "\\ud83d\\ude00\\ud83d\\ude01\\ud83d\\ude02");
     ASSERT_EQ(JsonValue::escapeString("", false), "");
+}
+
+TEST(JsonValue_ParsingBoundaryCondition) {
+    using namespace JsonStruct::literals;
+
+	JsonValue::ParseOptions options;
+	//options.allowRecovery = true;
+    options.allowTrailingCommas = true;
+    JsonValue json = JsonValue::parse("[1,2,,,4]", options);
+    ASSERT_EQ(json.dump(), "[1,2,4]");
+
+    options.allowRecovery = true;
+    JsonValue json2 = JsonValue::parse("[1,2,,,4]", options);
+    ASSERT_EQ(json2.dump(), "[1,2,4]");
+
+    JsonValue json3 = JsonValue::parse("[1,2,,3,4]", options);
+    ASSERT_EQ(json3.dump(), "[1,2,3,4]");
+
+    JsonValue json4 = JsonValue::parse(R"({"key1": "value1",,,, "key2": "value2",,, "key3": "value3"})", options);
+    ASSERT_EQ(json4.dump(), R"({"key1":"value1","key2":"value2","key3":"value3"})");
+
+    options.allowRecovery = false;
+    JsonValue json5 = JsonValue::parse(R"({"key1": "value1",, "key2": "value2",, "key3": "value3"})", options);
+    ASSERT_EQ(json5.dump(), R"({"key1":"value1","key2":"value2","key3":"value3"})");
+
+    options.allowTrailingCommas = false;
+    JsonValue json6;
+    std::string errMsg;
+    auto err = JsonValue::parse("[1,2,,,4]", json6, errMsg, options);
+    ASSERT_NE(err, JsonErrc::Success);
+
+    // recovery mode + allowTrailingCommas = true
+    options.allowRecovery = true;
+    options.allowTrailingCommas = true;
+
+	// continue multiple illegal keys and commas, without a terminator
+    std::string json7 = R"({ ,,, , , , "a":1, , , , "b":2 ,,, })";
+    auto value = JsonStruct::JsonValue::parse(json7, options);
+
+    ASSERT_TRUE(value.isObject());
+    ASSERT_TRUE(value.contains("a"));
+    ASSERT_TRUE(value.contains("b"));
+	ASSERT_EQ(value.dump(), R"({"a":1,"b":2})");
+}
+
+TEST(JsonValue_ParseUnicodeCondition) {
+	std::string vJson = R"("abc\u12def")";
+	auto value = JsonValue::parse(vJson);
+    std::string json = R"("abc\u12G4def")";
+    std::error_code ec;
+	std::string errMsg;
+    value = JsonValue::parse(json, {}, ec, errMsg);
+
+    // 应该解析失败
+    ASSERT_TRUE(value.isNull());
 }
 
 int main() {
