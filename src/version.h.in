@@ -1,0 +1,98 @@
+#ifndef JSON_STRUCT_VERSION_H
+#define JSON_STRUCT_VERSION_H
+
+#include <string>
+#include <tuple>
+
+namespace JsonStruct {
+
+/**
+ * @brief 版本管理类
+ * 
+ * 提供版本信息查询、兼容性检查等功能
+ * 遵循语义化版本控制 (Semantic Versioning)：MAJOR.MINOR.PATCH
+ */
+class Version {
+public:
+    // 版本号常量（由CMake自动生成）
+    static constexpr int MAJOR = @JSON_STRUCT_VERSION_MAJOR@;
+    static constexpr int MINOR = @JSON_STRUCT_VERSION_MINOR@;
+    static constexpr int PATCH = @JSON_STRUCT_VERSION_PATCH@;
+    static constexpr const char* SUFFIX = "@JSON_STRUCT_VERSION_SUFFIX@";
+    static constexpr const char* BUILD_DATE = "@JSON_STRUCT_BUILD_DATE@";
+    static constexpr const char* GIT_COMMIT = "@JSON_STRUCT_GIT_COMMIT@";
+    static constexpr const char* GIT_BRANCH = "@JSON_STRUCT_GIT_BRANCH@";
+
+    /**
+     * @brief 获取完整版本字符串
+     * @return 格式：MAJOR.MINOR.PATCH[-SUFFIX]
+     */
+    static std::string getVersionString();
+
+    /**
+     * @brief 获取详细版本信息
+     * @return 包含构建信息的详细版本字符串
+     */
+    static std::string getDetailedVersionString();
+
+    /**
+     * @brief 获取版本元组
+     * @return std::tuple<major, minor, patch>
+     */
+    static std::tuple<int, int, int> getVersionTuple();
+
+    /**
+     * @brief 检查API兼容性
+     * @param required_major 需要的主版本号
+     * @param required_minor 需要的次版本号
+     * @return true 如果当前版本兼容
+     */
+    static bool isCompatible(int required_major, int required_minor = 0);
+
+    /**
+     * @brief 比较版本
+     * @param other_major 其他版本的主版本号
+     * @param other_minor 其他版本的次版本号
+     * @param other_patch 其他版本的修订号
+     * @return -1: 当前版本较低, 0: 相等, 1: 当前版本较高
+     */
+    static int compareVersion(int other_major, int other_minor, int other_patch);
+
+    /**
+     * @brief 获取构建时间戳
+     * @return 构建时间字符串
+     */
+    static std::string getBuildDate();
+
+    /**
+     * @brief 获取Git提交信息
+     * @return Git提交哈希
+     */
+    static std::string getGitCommit();
+
+    /**
+     * @brief 获取Git分支信息
+     * @return Git分支名称
+     */
+    static std::string getGitBranch();
+
+    /**
+     * @brief 检查是否为发布版本
+     * @return true 如果是正式发布版本（无后缀）
+     */
+    static bool isReleaseVersion();
+
+    /**
+     * @brief 获取版本的JSON表示
+     * @return JSON格式的版本信息
+     */
+    static std::string toJson();
+};
+
+// 便捷宏定义
+#define JSON_STRUCT_VERSION_STRING JsonStruct::Version::getVersionString()
+#define JSON_STRUCT_VERSION_CHECK(major, minor) JsonStruct::Version::isCompatible(major, minor)
+
+} // namespace JsonStruct
+
+#endif // JSON_STRUCT_VERSION_H
