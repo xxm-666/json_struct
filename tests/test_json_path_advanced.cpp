@@ -743,6 +743,230 @@ TEST(JsonPath_MultiLevelNestedFilter) {
     ASSERT_EQ(greater28[0].get()["name"].toString(), "A");
 }
 
+TEST(JsonPath_RobustnessWhitespace) {
+    JsonValue json = JsonValue::parse(R"({
+        "data": [
+            {"name": "item1", "value": 10, "tags": ["a", "b"]},
+            {"name": "item2", "value": 20, "tags": ["b", "c"]},
+            {"name": "item3", "value": 30, "tags": ["c", "d"]}
+        ],
+        "config": {
+            "threshold": 15,
+            "mode": "advanced"
+        }
+    })");
+
+    // 测试多空格的路径表达式
+    auto result1 = jsonvalue_jsonpath::selectAll(json, "$  .  data  [  ?  (  @  .  value  >  15  )  ]  .  name");
+    ASSERT_EQ(result1.size(), 2);
+    ASSERT_EQ(result1[0].get().toString(), "item2");
+    ASSERT_EQ(result1[1].get().toString(), "item3");
+
+    // 测试嵌套过滤器中的空格
+    auto result2 = jsonvalue_jsonpath::selectAll(json, "$  .  data  [  ?  (  @  .  tags  [  ?  (  @  ==  \"c\"  )  ]  )  ]");
+    ASSERT_EQ(result2.size(), 2);
+
+    // 测试逻辑运算符周围的空格
+    auto result3 = jsonvalue_jsonpath::selectAll(json, "$.data[?(  @.value  >  10   &&   @.value  <  30  )]");
+    ASSERT_EQ(result3.size(), 1);
+    ASSERT_EQ(result3[0].get()["name"].toString(), "item2");
+
+    // 测试OR运算符的空格
+    auto result4 = jsonvalue_jsonpath::selectAll(json, "$.data[?(  @.value  ==  10   ||   @.value  ==  30  )]");
+    ASSERT_EQ(result4.size(), 2);
+}
+
+TEST(JsonPath_BoundaryConditions) {
+    JsonValue json = JsonValue::parse(R"({
+        "numbers": [-10, -5, 0, 5, 10, 15, 20],
+        "strings": ["", "a", "ab", "abc", "abcd"],
+        "arrays": [[], [1], [1, 2], [1, 2, 3]],
+        "objects": [
+            {},
+            {"a": 1},
+            {"a": 1, "b": 2},
+            {"a": null, "b": "", "c": 0}
+        ]
+    })");
+
+    // 边界条件：空字符串
+    auto empty_strings = jsonvalue_jsonpath::selectAll(json, "$.strings[?(@  ==  \"\")]");
+    ASSERT_EQ(empty_strings.size(), 1);
+
+    // 边界条件：零值
+    auto zero_values = jsonvalue_jsonpath::selectAll(json, "$.numbers[?(@ == 0)]");
+    ASSERT_EQ(zero_values.size(), 1);
+
+    // 边界条件：负数
+    auto negative_numbers = jsonvalue_jsonpath::selectAll(json, "$.numbers[?(@ < 0)]");
+    ASSERT_EQ(negative_numbers.size(), 2);
+
+    // 边界条件：空数组
+    auto empty_arrays = jsonvalue_jsonpath::selectAll(json, "$.arrays[?(@.length() == 0)]");
+    ASSERT_EQ(empty_arrays.size(), 1);
+
+    // 边界条件：单元素数组
+    auto single_element = jsonvalue_jsonpath::selectAll(json, "$.arrays[?(@.length() == 1)]");
+    ASSERT_EQ(single_element.size(), 1);
+
+    // 边界条件：null值比较
+    auto null_values = jsonvalue_jsonpath::selectAll(json, "$.objects[?(@.a == null)]");
+    ASSERT_EQ(null_values.size(), 1);
+}
+
+TEST(JsonPath_AdvancedArraySlicing) {
+    JsonValue json = JsonValue::parse(R"({
+        "data": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    })");
+
+    // 边界条件：起始索引等于数组长度
+    auto out_of_bounds = jsonvalue_jsonpath::selectAll(json, "$.data[20:25]");
+    ASSERT_EQ(out_of_bounds.size(), 0);
+
+    // 边界条件：负索引，从末尾开始  
+    auto negative_start = jsonvalue_jsonpath::selectAll(json, "$.data[-3:]");
+    ASSERT_EQ(negative_start.size(), 3); // 用户期望的标准行为：最后3个元素
+    ASSERT_EQ(negative_start[0].get().toInt(), 17);
+    ASSERT_EQ(negative_start[1].get().toInt(), 18);
+    ASSERT_EQ(negative_start[2].get().toInt(), 19);
+
+    // 边界条件：大步长
+    auto large_step = jsonvalue_jsonpath::selectAll(json, "$.data[0::5]");
+    ASSERT_EQ(large_step.size(), 4); // 0, 5, 10, 15
+
+    // 边界条件：基本切片
+    auto basic_slice = jsonvalue_jsonpath::selectAll(json, "$.data[15:18]");
+    ASSERT_EQ(basic_slice.size(), 3); // 15, 16, 17
+
+    // 边界条件：重叠切片
+    auto overlap = jsonvalue_jsonpath::selectAll(json, "$.data[5:15:3]");
+    ASSERT_EQ(overlap.size(), 4); // 5, 8, 11, 14
+}
+
+TEST(JsonPath_SpecialCharactersAndBrackets) {
+    JsonValue json = JsonValue::parse(R"({
+        "special_chars": {
+            "normal_key": "test",
+            "dash-key": "dash-value",
+            "dot.key": "dot-value",
+            "space key": "space-value"
+        },
+        "nested_array": [
+            {"name": "item1", "score": 4.5},
+            {"name": "item2", "score": 3.8},
+            {"name": "item3", "score": 4.9}
+        ]
+    })");
+
+    // 测试正常属性访问
+    auto normal_prop = jsonvalue_jsonpath::selectAll(json, "$.special_chars.normal_key");
+    ASSERT_EQ(normal_prop.size(), 1);
+    ASSERT_EQ(normal_prop[0].get().toString(), "test");
+
+    // 测试带空格的键名（括号表示法）
+    auto space_key = jsonvalue_jsonpath::selectAll(json, "$[\"special_chars\"][\"space key\"]");
+    ASSERT_EQ(space_key.size(), 1);
+    ASSERT_EQ(space_key[0].get().toString(), "space-value");
+
+    // 测试带点号的键名（括号表示法）
+    auto dot_key = jsonvalue_jsonpath::selectAll(json, "$[\"special_chars\"][\"dot.key\"]");
+    ASSERT_EQ(dot_key.size(), 1);
+    ASSERT_EQ(dot_key[0].get().toString(), "dot-value");
+
+    // 测试带横线的键名（括号表示法）
+    auto dash_key = jsonvalue_jsonpath::selectAll(json, "$[\"special_chars\"][\"dash-key\"]");
+    ASSERT_EQ(dash_key.size(), 1);
+    ASSERT_EQ(dash_key[0].get().toString(), "dash-value");
+
+    // 测试过滤器with浮点数
+    auto score_filter = jsonvalue_jsonpath::selectAll(json, "$.nested_array[?(@.score > 4.0)]");
+    ASSERT_EQ(score_filter.size(), 2);
+}
+
+TEST(JsonPath_ComplexRobustnessTest) {
+    JsonValue json = JsonValue::parse(R"({
+        "data": {
+            "employees": [
+                {
+                    "id": 1,
+                    "name": "Alice",
+                    "age": 30,
+                    "salary": 75000.5,
+                    "active": true,
+                    "skills": ["Java", "Python", "React"],
+                    "projects": [
+                        {"name": "Project A", "status": "completed", "priority": 1},
+                        {"name": "Project B", "status": "in-progress", "priority": 2}
+                    ]
+                },
+                {
+                    "id": 2,
+                    "name": "Bob",
+                    "age": 25,
+                    "salary": 60000.0,
+                    "active": false,
+                    "skills": ["Go", "Docker"],
+                    "projects": [
+                        {"name": "Project C", "status": "cancelled", "priority": 3}
+                    ]
+                },
+                {
+                    "id": 3,
+                    "name": "Charlie",
+                    "age": 35,
+                    "salary": 90000.0,
+                    "active": true,
+                    "skills": ["JavaScript", "Node.js", "AWS"],
+                    "projects": []
+                }
+            ],
+            "departments": {
+                "Engineering": {"budget": 500000, "head": "Alice"},
+                "Marketing": {"budget": 200000, "head": "Bob"}
+            }
+        }
+    })");
+
+    // 复杂查询：活跃员工中年龄大于28且薪水超过70000的
+    auto complex_filter = jsonvalue_jsonpath::selectAll(json, 
+        "$.data.employees[?(  @.active  ==  true   &&   @.age  >  28   &&   @.salary  >  70000  )]");
+    ASSERT_EQ(complex_filter.size(), 2); // Alice and Charlie
+
+    // 嵌套过滤：有进行中项目的员工
+    auto nested_filter = jsonvalue_jsonpath::selectAll(json,
+        "$.data.employees[?(@.projects[?(@.status == \"in-progress\")])]");
+    ASSERT_EQ(nested_filter.size(), 1); // Alice
+
+    // 递归查询：所有项目名称
+    auto recursive = jsonvalue_jsonpath::selectAll(json, "$..projects[*].name");
+    ASSERT_EQ(recursive.size(), 3); // Project A, B, C
+
+    // 数组切片：前两个员工
+    auto slice = jsonvalue_jsonpath::selectAll(json, "$.data.employees[0:2]");
+    ASSERT_EQ(slice.size(), 2);
+
+    // 多重OR条件：年龄小于30的员工
+    auto young_employees = jsonvalue_jsonpath::selectAll(json,
+        "$.data.employees[?(@.age < 30)]");
+    ASSERT_EQ(young_employees.size(), 1); // Bob (age 25)
+
+    // 技能包含AWS的员工  
+    auto aws_employees = jsonvalue_jsonpath::selectAll(json,
+        "$.data.employees[?(@.skills[?(@  ==  \"AWS\")])]");
+    ASSERT_EQ(aws_employees.size(), 1); // Charlie
+
+    // 函数调用：技能数量大于2的员工
+    auto function_filter = jsonvalue_jsonpath::selectAll(json,
+        "$.data.employees[?(@.skills.length() > 2)]");
+    ASSERT_EQ(function_filter.size(), 2); // Alice and Charlie
+
+    // 括号表示法访问部门
+    auto bracket_access = jsonvalue_jsonpath::selectAll(json, 
+        "$[\"data\"][\"departments\"][\"Engineering\"][\"budget\"]");
+    ASSERT_EQ(bracket_access.size(), 1);
+    ASSERT_EQ(bracket_access[0].get().toDouble(), 500000.0);
+}
+
 int main(int argc, char** argv) {
     return RUN_ALL_TESTS();
 }
