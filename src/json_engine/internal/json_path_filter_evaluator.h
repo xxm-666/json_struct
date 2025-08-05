@@ -5,13 +5,22 @@
 #include <vector>
 #include <string>
 #include <optional>
-
-// Forward declaration
-namespace JsonStruct {
-    class JsonValue;
-}
+#include <unordered_map>
+#include "json_value.h"
 
 namespace jsonpath {
+
+// Method handler function type
+using MethodHandler = std::function<std::optional<JsonStruct::JsonValue>(const JsonStruct::JsonValue&)>;
+
+// Method call result structure
+struct MethodCallResult {
+    bool success;
+    JsonStruct::JsonValue value;
+
+    MethodCallResult() : success(false), value(JsonStruct::JsonValue()) {}
+    MethodCallResult(const JsonStruct::JsonValue& val) : success(true), value(val) {}
+};
 
 /**
  * @brief Filter evaluator - handles [?(...)] filter expressions
@@ -24,6 +33,7 @@ namespace jsonpath {
  * - Regular expressions (@.property =~ /pattern/)
  * - In operator (@.property in ['value1', 'value2'])
  * - Existence checks (@.property)
+ * - Method calls (@.property.method())
  */
 class FilterEvaluator {
 public:
@@ -80,7 +90,24 @@ public:
                     const std::vector<std::reference_wrapper<JsonStruct::JsonValue>>& inputs,
                     const std::vector<std::string>& input_paths);
 
-private:
+    /**
+     * @brief Register a custom method handler
+     * @param method_name Name of the method (e.g., "length", "max")
+     * @param handler Function to handle the method call
+     */
+    static void registerMethod(const std::string& method_name, MethodHandler handler);
+
+    /**
+     * @brief Unregister a method handler
+     * @param method_name Name of the method to remove
+     */
+    static void unregisterMethod(const std::string& method_name);
+
+    /**
+     * @brief Clear all registered methods (useful for testing)
+     */
+    static void clearMethods();
+
     /**
      * @brief Evaluate a filter condition against a context value
      * @param condition The condition string
@@ -88,7 +115,7 @@ private:
      * @return True if condition matches
      */
     static bool evaluateFilterCondition(const std::string& condition, const JsonStruct::JsonValue& context);
-    
+private:   
     /**
      * @brief Get property value from context using JSONPath syntax
      * @param property The property path
@@ -147,7 +174,39 @@ private:
     static bool handleInOperator(const std::string& expr, const JsonStruct::JsonValue& context);
     
     /**
-     * @brief Handle method calls and calculations
+     * @brief Get the global method registry
+     * @return Reference to the method registry map
+     */
+    static std::unordered_map<std::string, MethodHandler>& getMethodRegistry();
+
+    /**
+     * @brief Initialize built-in methods
+     */
+    static void initializeBuiltinMethods();
+
+    /**
+     * @brief Parse and execute method call
+     * @param expr The expression containing method call
+     * @param context The JSON value context
+     * @return Method call result
+     */
+    static MethodCallResult executeMethodCall(const std::string& expr, const JsonStruct::JsonValue& context);
+
+    /**
+     * @brief Extract method name and property path from expression
+     * @param expr The expression string
+     * @return Pair of property path and method name, or empty if invalid
+     */
+    static std::pair<std::string, std::string> parseMethodCall(const std::string& expr);
+
+    // Built-in method handlers
+    static std::optional<JsonStruct::JsonValue> lengthMethodHandler(const JsonStruct::JsonValue& value);
+    static std::optional<JsonStruct::JsonValue> maxMethodHandler(const JsonStruct::JsonValue& value);
+    static std::optional<JsonStruct::JsonValue> minMethodHandler(const JsonStruct::JsonValue& value);
+    static std::optional<JsonStruct::JsonValue> sizeMethodHandler(const JsonStruct::JsonValue& value);
+
+    /**
+     * @brief Handle method calls and calculations (refactored)
      * @param expr The expression string
      * @param context The JSON value context
      * @return True if method call succeeds

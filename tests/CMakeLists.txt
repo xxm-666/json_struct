@@ -219,6 +219,11 @@ target_link_libraries(test_multi_nested_filters PRIVATE test_framework json_stru
 target_include_directories(test_multi_nested_filters PRIVATE test_framework json_struct)
 target_compile_features(test_multi_nested_filters PRIVATE cxx_std_17)
 
+add_executable(test_method_registry tests/test_method_registry.cpp)
+target_link_libraries(test_method_registry PRIVATE test_framework json_struct)
+target_include_directories(test_method_registry PRIVATE test_framework json_struct)
+target_compile_features(test_method_registry PRIVATE cxx_std_17)
+
 # 创建运行核心测试的目标
 add_custom_target(run_core_tests
     DEPENDS test_core_functionality test_json_auto test_enhanced_features 

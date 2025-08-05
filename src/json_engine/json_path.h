@@ -5,6 +5,7 @@
 #include <optional>
 #include <functional>
 #include <stdexcept>
+#include "internal/json_path_parser.h"
 
 // Forward declaration
 namespace JsonStruct {
@@ -42,10 +43,10 @@ namespace JsonStruct {
 namespace jsonpath {
 
 // Re-export types from modules for backward compatibility
-using TokenType = jsonpath::TokenType;
-using Token = jsonpath::Token;
-using NodeType = jsonpath::NodeType;
-using PathNode = jsonpath::PathNode;
+// using TokenType = jsonpath::TokenType;
+// using Token = jsonpath::Token;
+// using NodeType = jsonpath::NodeType;
+// using PathNode = jsonpath::PathNode;
 
 /**
  * @brief JSONPath query result for mutable operations

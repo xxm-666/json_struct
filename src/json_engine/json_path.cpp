@@ -1,7 +1,6 @@
 #include "json_path.h"
 #include "json_value.h"
 #include "internal/json_path_tokenizer.h"
-#include "internal/json_path_parser.h"
 #include "internal/json_path_simple_evaluator.h"
 #include "internal/json_path_filter_evaluator.h"
 #include "internal/json_path_advanced_evaluator.h"

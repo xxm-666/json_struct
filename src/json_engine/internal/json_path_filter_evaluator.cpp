@@ -50,6 +50,178 @@ inline bool endsWith(const std::string &str, const std::string &suffix)
     return str.size() >= suffix.size() && str.substr(str.size() - suffix.size()) == suffix;
 }
 
+// Global method registry
+std::unordered_map<std::string, MethodHandler>& FilterEvaluator::getMethodRegistry() {
+    static std::unordered_map<std::string, MethodHandler> registry;
+    static bool initialized = false;
+
+    if (!initialized) {
+        registry["length"] = lengthMethodHandler;
+        registry["max"] = maxMethodHandler;
+        registry["min"] = minMethodHandler;
+        registry["size"] = sizeMethodHandler;
+        initialized = true;
+    }
+
+    return registry;
+}
+
+void FilterEvaluator::initializeBuiltinMethods() {
+    auto& registry = getMethodRegistry();
+
+    // Register built-in methods
+    registry["length"] = lengthMethodHandler;
+    registry["max"] = maxMethodHandler;
+    registry["min"] = minMethodHandler;
+    registry["size"] = sizeMethodHandler;
+}
+
+void FilterEvaluator::registerMethod(const std::string& method_name, MethodHandler handler) {
+    auto& registry = getMethodRegistry();
+    registry[method_name] = std::move(handler);
+}
+
+void FilterEvaluator::unregisterMethod(const std::string& method_name) {
+    auto& registry = getMethodRegistry();
+    registry.erase(method_name);
+}
+
+void FilterEvaluator::clearMethods() {
+    auto& registry = getMethodRegistry();
+    registry.clear();
+}
+
+std::pair<std::string, std::string> FilterEvaluator::parseMethodCall(const std::string& expr) {
+    // Look for pattern: property.method() or @.property.method()
+    // Returns pair of (property_path, method_name)
+
+    // Find the last occurrence of .method() pattern
+    std::regex method_pattern(R"((.+)\.(\w+)\(\))");
+    std::smatch match;
+
+    if (std::regex_search(expr, match, method_pattern)) {
+        std::string property_path = match[1].str();
+        std::string method_name = match[2].str();
+
+        // Trim whitespace
+        property_path = trim(property_path);
+        method_name = trim(method_name);
+
+        return {property_path, method_name};
+    }
+
+    // Fallback: look for method() without property (implies @)
+    std::regex simple_method_pattern(R"((\w+)\(\))");
+    if (std::regex_search(expr, match, simple_method_pattern)) {
+        std::string method_name = match[1].str();
+        return {"@", trim(method_name)};
+    }
+
+    return {"", ""};
+}
+
+MethodCallResult FilterEvaluator::executeMethodCall(const std::string& expr, const JsonStruct::JsonValue& context) {
+    auto [property_path, method_name] = parseMethodCall(expr);
+
+    if (property_path.empty() || method_name.empty()) {
+        return MethodCallResult(); // Failed to parse
+    }
+
+    // Get the property value
+    const JsonStruct::JsonValue* prop_value = getPropertyValue(property_path, context);
+    if (!prop_value) {
+        return MethodCallResult(); // Property not found
+    }
+
+    // Find and execute the method handler
+    auto& registry = getMethodRegistry();
+    auto it = registry.find(method_name);
+    if (it == registry.end()) {
+        return MethodCallResult(); // Method not found
+    }
+
+    auto result = it->second(*prop_value);
+    if (result.has_value()) {
+        return MethodCallResult(result.value());
+    }
+
+    return MethodCallResult(); // Method execution failed
+}
+
+// Built-in method handlers
+std::optional<JsonStruct::JsonValue> FilterEvaluator::lengthMethodHandler(const JsonStruct::JsonValue& value) {
+    if (value.isArray()) {
+        if (const auto* arr = value.getArray()) {
+            return JsonStruct::JsonValue(static_cast<double>(arr->size()));
+        }
+    } else if (value.isString()) {
+        auto str_opt = value.getString();
+        if (str_opt) {
+            return JsonStruct::JsonValue(static_cast<double>(str_opt.value().size()));
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<JsonStruct::JsonValue> FilterEvaluator::maxMethodHandler(const JsonStruct::JsonValue& value) {
+    if (!value.isArray()) {
+        return std::nullopt;
+    }
+
+    const auto* arr = value.getArray();
+    if (!arr || arr->empty()) {
+        return std::nullopt;
+    }
+
+    double max_value = std::numeric_limits<double>::lowest();
+    bool found_numeric = false;
+
+    for (size_t i = 0; i < arr->size(); ++i) {
+        const auto& element = (*arr)[i];
+        if (element.isNumber()) {
+            auto num_opt = element.getNumber();
+            if (num_opt) {
+                max_value = std::max(max_value, num_opt.value());
+                found_numeric = true;
+            }
+        }
+    }
+
+    return found_numeric ? std::optional<JsonStruct::JsonValue>(max_value) : std::nullopt;
+}
+
+std::optional<JsonStruct::JsonValue> FilterEvaluator::minMethodHandler(const JsonStruct::JsonValue& value) {
+    if (!value.isArray()) {
+        return std::nullopt;
+    }
+
+    const auto* arr = value.getArray();
+    if (!arr || arr->empty()) {
+        return std::nullopt;
+    }
+
+    double min_value = std::numeric_limits<double>::max();
+    bool found_numeric = false;
+
+    for (size_t i = 0; i < arr->size(); ++i) {
+        const auto& element = (*arr)[i];
+        if (element.isNumber()) {
+            auto num_opt = element.getNumber();
+            if (num_opt) {
+                min_value = std::min(min_value, num_opt.value());
+                found_numeric = true;
+            }
+        }
+    }
+
+    return found_numeric ? std::optional<JsonStruct::JsonValue>(min_value) : std::nullopt;
+}
+
+std::optional<JsonStruct::JsonValue> FilterEvaluator::sizeMethodHandler(const JsonStruct::JsonValue& value) {
+    // Alias for length
+    return lengthMethodHandler(value);
+}
+
 bool FilterEvaluator::canHandle(const std::vector<PathNode> &nodes)
 {
     return std::any_of(nodes.begin(), nodes.end(), [](const PathNode &node)
@@ -183,8 +355,9 @@ bool FilterEvaluator::evaluateFilterCondition(const std::string &filter_expr, co
         return handleNestedFilter(expr, context);
     }
 
-    // Handle method calls first (look for length() or max() with possible spaces)
-    if (expr.find("length()") != std::string::npos || expr.find("max()") != std::string::npos)
+    // Handle method calls using the new registry system
+    std::regex method_call_pattern(R"(\b\w+\(\))");
+    if (std::regex_search(expr, method_call_pattern))
     {
         return handleMethodCalculation(expr, context);
     }
@@ -512,122 +685,41 @@ bool FilterEvaluator::handleInOperator(const std::string &expr, const JsonStruct
 
 bool FilterEvaluator::handleMethodCalculation(const std::string &expr, const JsonStruct::JsonValue &context)
 {
-
-    // Handle length() method (with possible spaces)
-    if (expr.find("length()") != std::string::npos)
-    {
-        size_t length_pos = expr.find("length()");
-        std::string before_length = expr.substr(0, length_pos);
-        std::string rest = expr.substr(length_pos + 8); // 8 = length("length()")
-
-        // Remove trailing spaces and dots from property name
-        while (!before_length.empty() && (before_length.back() == ' ' || before_length.back() == '\t' || before_length.back() == '.'))
-        {
-            before_length.pop_back();
-        }
-
-        // Get property value using standard method
-        const JsonStruct::JsonValue *prop_value = getPropertyValue(before_length, context);
-        if (!prop_value)
-        {
-            return false;
-        }
-
-        size_t length = 0;
-        if (prop_value->isArray())
-        {
-            if (const auto *arr = prop_value->getArray())
-            {
-                length = arr->size();
-            }
-        }
-        else if (prop_value->isString())
-        {
-            auto str_opt = prop_value->getString();
-            if (str_opt)
-            {
-                length = str_opt.value().size();
-            }
-        }
-
-        // Now evaluate the comparison with length
-        if (!rest.empty())
-        {
-            // Create a temporary numeric context for comparison
-            JsonStruct::JsonValue temp_context(static_cast<int>(length));
-            std::string length_expr = "@" + rest; // Convert to @>5, @==3, etc.
-            return evaluateFilterCondition(length_expr, temp_context);
-        }
-
-        return length > 0;
+    // Use the new method registry system
+    auto method_result = executeMethodCall(expr, context);
+    if (!method_result.success) {
+        return false; // Method call failed
     }
 
-    // Handle max() method
-    if (expr.find("max()") != std::string::npos)
-    {
-        size_t max_pos = expr.find("max()");
-        std::string before_max = expr.substr(0, max_pos);
-        std::string rest = expr.substr(max_pos + 5); // 5 = length("max()")
-
-        // Remove trailing spaces and dots from property name
-        while (!before_max.empty() && (before_max.back() == ' ' || before_max.back() == '\t' || before_max.back() == '.'))
-        {
-            before_max.pop_back();
-        }
-
-        // Get property value using standard method
-        const JsonStruct::JsonValue *prop_value = getPropertyValue(before_max, context);
-        if (!prop_value)
-        {
-            return false;
-        }
-
-        if (prop_value->isArray())
-        {
-            const auto *arr = prop_value->getArray();
-            if (!arr || arr->empty())
-            {
-                return false;
-            }
-
-            double max_value = std::numeric_limits<double>::lowest();
-            bool found_numeric = false;
-
-            for (size_t i = 0; i < arr->size(); ++i)
-            {
-                const auto &element = (*arr)[i];
-                if (element.isNumber())
-                {
-                    auto num_opt = element.getNumber();
-                    if (num_opt)
-                    {
-                        max_value = std::max(max_value, num_opt.value());
-                        found_numeric = true;
-                    }
-                }
-            }
-
-            if (!found_numeric)
-            {
-                return false;
-            }
-
-            // Now evaluate the comparison with max value
-            if (!rest.empty())
-            {
-                // Create a temporary numeric context for comparison
-                JsonStruct::JsonValue temp_context(max_value);
-                std::string max_expr = "@" + rest; // Convert to @>50, @==100, etc.
-                return evaluateFilterCondition(max_expr, temp_context);
-            }
-
-            return true; // max value exists
-        }
-
+    // Parse the expression to find comparison operator after method call
+    auto [property_path, method_name] = parseMethodCall(expr);
+    if (property_path.empty() || method_name.empty()) {
         return false;
     }
 
-    return false;
+    // Find what comes after the method call
+    std::string method_call = property_path + "." + method_name + "()";
+    size_t method_pos = expr.find(method_call);
+    if (method_pos == std::string::npos) {
+        // Try without property path (just method())
+        method_call = method_name + "()";
+        method_pos = expr.find(method_call);
+        if (method_pos == std::string::npos) {
+            return false;
+        }
+    }
+
+    std::string rest = expr.substr(method_pos + method_call.length());
+
+    // If there's no comparison operator, just return true if method succeeded
+    if (rest.empty()) {
+        return true;
+    }
+
+    // Create a temporary numeric context for comparison
+    JsonStruct::JsonValue temp_context(method_result.value);
+    std::string comparison_expr = "@" + rest; // Convert to @>5, @==3, etc.
+    return evaluateFilterCondition(comparison_expr, temp_context);
 }
 
 bool FilterEvaluator::handleExistenceCheck(const std::string &expr, const JsonStruct::JsonValue &context)
