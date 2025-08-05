@@ -955,6 +955,9 @@ TEST(JsonPath_ComplexRobustnessTest) {
         "$.data.employees[?(@.skills[?(@  ==  \"AWS\")])]");
     ASSERT_EQ(aws_employees.size(), 1); // Charlie
 
+    auto young_and_aws = jsonvalue_jsonpath::selectAll(json, "$.data.employees[?(@.age < 30 || @.skills[?(@ == \"AWS\")])]");
+    ASSERT_EQ(young_and_aws.size(), 2); // Bob and Charlie
+
     // 函数调用：技能数量大于2的员工
     auto function_filter = jsonvalue_jsonpath::selectAll(json,
         "$.data.employees[?(@.skills.length() > 2)]");

@@ -1,10 +1,5 @@
 #pragma once
 
-#include "json_path_tokenizer.h"
-#include "json_path_parser.h"
-#include "json_path_simple_evaluator.h"
-#include "json_path_filter_evaluator.h"
-#include "json_path_advanced_evaluator.h"
 #include <string>
 #include <vector>
 #include <optional>
