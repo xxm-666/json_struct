@@ -199,6 +199,34 @@ private:
      */
     static std::pair<std::string, std::string> parseMethodCall(const std::string& expr);
 
+    // Chain element for chained method calls
+    enum class ChainElementType {
+        PROPERTY,  // Property access like .prop
+        METHOD     // Method call like .method()
+    };
+
+    struct ChainElement {
+        ChainElementType type;
+        std::string name;
+        
+        ChainElement(ChainElementType t, const std::string& n) : type(t), name(n) {}
+    };
+
+    /**
+     * @brief Parse chained method calls and property accesses
+     * @param expr The expression string (e.g., "@.prop1.method1().prop2.method2()")
+     * @return Vector of chain elements, or empty if invalid
+     */
+    static std::vector<ChainElement> parseChainedMethodCalls(const std::string& expr);
+
+    /**
+     * @brief Execute chained method calls and property accesses
+     * @param chain The parsed chain elements
+     * @param context The JSON value context
+     * @return Final result after executing the chain
+     */
+    static MethodCallResult executeChainedMethodCalls(const std::vector<ChainElement>& chain, const JsonStruct::JsonValue& context);
+
     // Built-in method handlers
     static std::optional<JsonStruct::JsonValue> lengthMethodHandler(const JsonStruct::JsonValue& value);
     static std::optional<JsonStruct::JsonValue> maxMethodHandler(const JsonStruct::JsonValue& value);

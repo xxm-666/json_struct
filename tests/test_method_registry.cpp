@@ -93,11 +93,54 @@ std::optional<JsonValue> customObjectHandler(const JsonStruct::JsonValue& value)
     return obj;
 }
 
+// 返回嵌套对象类型用于链式调用测试
+std::optional<JsonValue> customNestedObjectHandler(const JsonStruct::JsonValue& value) {
+    JsonValue obj = JsonValue::parse(R"({ 
+        "data": { "numbers": [1, 2, 3], "name": "test" },
+        "info": { "count": 5 }
+    })");
+    return obj;
+}
+
+// 返回数组类型用于链式调用测试
+std::optional<JsonValue> customArrayHandler(const JsonStruct::JsonValue& value) {
+    JsonValue arr = JsonValue::parse(R"([1, 2, 3, 4, 5])");
+    return arr;
+}
+
+// 返回包含对象的数组
+std::optional<JsonValue> customObjectArrayHandler(const JsonStruct::JsonValue& value) {
+    JsonValue arr = JsonValue::parse(R"([
+        { "name": "item1", "value": 10 },
+        { "name": "item2", "value": 20 }
+    ])");
+    return arr;
+}
+
 TEST(ReturnObjectType) {
     FilterEvaluator::registerMethod("object", customObjectHandler);
     JsonValue root = JsonValue::parse(R"({})");
     ASSERT_TRUE(FilterEvaluator::evaluateFilterCondition("object().a == 1", root));
     ASSERT_TRUE(FilterEvaluator::evaluateFilterCondition("object().b == 2", root));
+}
+
+TEST(ChainedMethodCalls) {
+    FilterEvaluator::registerMethod("nested", customNestedObjectHandler);
+    FilterEvaluator::registerMethod("array", customArrayHandler);
+    FilterEvaluator::registerMethod("objArray", customObjectArrayHandler);
+    
+    JsonValue root = JsonValue::parse(R"({})");
+    
+    // Test chained property access after method call
+    ASSERT_TRUE(FilterEvaluator::evaluateFilterCondition("nested().data.name == 'test'", root));
+    ASSERT_TRUE(FilterEvaluator::evaluateFilterCondition("nested().info.count == 5", root));
+    
+    // Test method call on method result
+    ASSERT_TRUE(FilterEvaluator::evaluateFilterCondition("array().length() == 5", root));
+    ASSERT_TRUE(FilterEvaluator::evaluateFilterCondition("array().max() == 5", root));
+    
+    // Test complex chained calls on object array
+    ASSERT_TRUE(FilterEvaluator::evaluateFilterCondition("objArray().length() == 2", root));
 }
 
 // 返回null类型

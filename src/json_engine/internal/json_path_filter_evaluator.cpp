@@ -120,6 +120,151 @@ std::pair<std::string, std::string> FilterEvaluator::parseMethodCall(const std::
     return {"", ""};
 }
 
+std::vector<FilterEvaluator::ChainElement> FilterEvaluator::parseChainedMethodCalls(const std::string& expr) {
+    std::vector<ChainElement> chain;
+    
+    // Remove leading @ if present
+    std::string working_expr = expr;
+    if (startsWith(working_expr, "@")) {
+        working_expr = working_expr.substr(1);
+    }
+    
+    // Handle the case where the expression starts with a method call (no property)
+    if (!startsWith(working_expr, ".") && working_expr.find("()") != std::string::npos) {
+        // This means it starts with a method call like "array().length()"
+        
+        // Split by . and parse each segment
+        size_t pos = 0;
+        while (pos < working_expr.length()) {
+            if (pos > 0 && working_expr[pos] == '.') {
+                pos++; // Skip the dot
+            }
+            
+            // Find the next dot or end of string, but be careful about method calls
+            size_t next_pos = pos;
+            int paren_depth = 0;
+            bool in_method = false;
+            
+            while (next_pos < working_expr.length()) {
+                char c = working_expr[next_pos];
+                if (c == '(') {
+                    paren_depth++;
+                    in_method = true;
+                } else if (c == ')') {
+                    paren_depth--;
+                    if (paren_depth == 0 && in_method) {
+                        next_pos++; // Include the closing parenthesis
+                        break;
+                    }
+                } else if (c == '.' && paren_depth == 0) {
+                    break;
+                }
+                next_pos++;
+            }
+            
+            if (next_pos > pos) {
+                std::string segment = working_expr.substr(pos, next_pos - pos);
+                segment = trim(segment);
+                
+                if (endsWith(segment, "()")) {
+                    // Method call
+                    std::string method_name = segment.substr(0, segment.length() - 2);
+                    chain.emplace_back(ChainElementType::METHOD, method_name);
+                } else {
+                    // Property access
+                    chain.emplace_back(ChainElementType::PROPERTY, segment);
+                }
+            }
+            
+            pos = next_pos;
+        }
+    } else {
+        // Original property-based parsing for cases like "@.prop.method()"
+        size_t pos = 0;
+        while (pos < working_expr.length()) {
+            if (working_expr[pos] == '.') {
+                pos++; // Skip the dot
+            }
+            
+            // Find the next dot or end of string, but be careful about method calls
+            size_t next_pos = pos;
+            int paren_depth = 0;
+            bool in_method = false;
+            
+            while (next_pos < working_expr.length()) {
+                char c = working_expr[next_pos];
+                if (c == '(') {
+                    paren_depth++;
+                    in_method = true;
+                } else if (c == ')') {
+                    paren_depth--;
+                    if (paren_depth == 0 && in_method) {
+                        next_pos++; // Include the closing parenthesis
+                        break;
+                    }
+                } else if (c == '.' && paren_depth == 0) {
+                    break;
+                }
+                next_pos++;
+            }
+            
+            if (next_pos > pos) {
+                std::string segment = working_expr.substr(pos, next_pos - pos);
+                segment = trim(segment);
+                
+                if (endsWith(segment, "()")) {
+                    // Method call
+                    std::string method_name = segment.substr(0, segment.length() - 2);
+                    chain.emplace_back(ChainElementType::METHOD, method_name);
+                } else {
+                    // Property access
+                    chain.emplace_back(ChainElementType::PROPERTY, segment);
+                }
+            }
+            
+            pos = next_pos;
+        }
+    }
+    
+    return chain;
+}
+
+MethodCallResult FilterEvaluator::executeChainedMethodCalls(const std::vector<ChainElement>& chain, const JsonStruct::JsonValue& context) {
+    if (chain.empty()) {
+        return MethodCallResult();
+    }
+    
+    // Start with the initial context
+    JsonStruct::JsonValue current_value = context;
+    
+    for (const auto& element : chain) {
+        if (element.type == ChainElementType::PROPERTY) {
+            // Property access
+            if (current_value.isObject() && current_value.contains(element.name)) {
+                current_value = current_value[element.name];
+            } else {
+                return MethodCallResult(); // Property not found
+            }
+        } else if (element.type == ChainElementType::METHOD) {
+            // Method call
+            auto& registry = getMethodRegistry();
+            auto it = registry.find(element.name);
+            if (it == registry.end()) {
+                return MethodCallResult(); // Method not found
+            }
+            
+            auto result = it->second(current_value);
+            if (!result.has_value()) {
+                return MethodCallResult(); // Method execution failed
+            }
+            
+            current_value = result.value();
+        }
+    }
+    
+    return MethodCallResult(current_value);
+}
+
 MethodCallResult FilterEvaluator::executeMethodCall(const std::string& expr, const JsonStruct::JsonValue& context) {
     auto [property_path, method_name] = parseMethodCall(expr);
 
@@ -685,7 +830,63 @@ bool FilterEvaluator::handleInOperator(const std::string &expr, const JsonStruct
 
 bool FilterEvaluator::handleMethodCalculation(const std::string &expr, const JsonStruct::JsonValue &context)
 {
-    // Use the new method registry system
+    // Check if this is a chained method call (contains multiple method calls)
+    std::regex multiple_methods_pattern(R"(\w+\(\).*\w+\(\))");
+    if (std::regex_search(expr, multiple_methods_pattern)) {
+        // Use chained method call logic
+        
+        // Find the boundary between method calls and comparison operators
+        std::string method_expr = expr;
+        std::string comparison_part = "";
+        
+        // Look for comparison operators after the method chain
+        std::vector<std::string> comparison_ops = {" == ", " != ", " >= ", " <= ", " > ", " < "};
+        size_t earliest_op_pos = std::string::npos;
+        std::string found_op = "";
+        
+        for (const auto& op : comparison_ops) {
+            size_t pos = expr.find(op);
+            if (pos != std::string::npos && pos < earliest_op_pos) {
+                earliest_op_pos = pos;
+                found_op = op;
+            }
+        }
+        
+        if (earliest_op_pos != std::string::npos) {
+            method_expr = trim(expr.substr(0, earliest_op_pos));
+            comparison_part = trim(expr.substr(earliest_op_pos));
+        }
+        
+        // Parse and execute the chained method calls
+        auto chain = parseChainedMethodCalls(method_expr);
+        if (chain.empty()) {
+            return false;
+        }
+        
+        auto result = executeChainedMethodCalls(chain, context);
+        if (!result.success) {
+            return false;
+        }
+        
+        // If there's no comparison operator, just return true if method succeeded
+        if (comparison_part.empty()) {
+            return true;
+        }
+        
+        // Create a temporary context for comparison
+        std::string comparison_expr = "@" + comparison_part;
+        
+        // Fix the comparison expression format
+        if (startsWith(comparison_part, "==") || startsWith(comparison_part, "!=") || 
+            startsWith(comparison_part, ">=") || startsWith(comparison_part, "<=") ||
+            startsWith(comparison_part, ">") || startsWith(comparison_part, "<")) {
+            comparison_expr = "@ " + comparison_part;
+        }
+        
+        return evaluateFilterCondition(comparison_expr, result.value);
+    }
+    
+    // Original single method call logic
     auto method_result = executeMethodCall(expr, context);
     if (!method_result.success) {
         return false; // Method call failed

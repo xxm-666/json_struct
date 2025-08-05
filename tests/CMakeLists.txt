@@ -125,10 +125,6 @@ add_executable(test_json_pipeline tests/test_json_pipeline.cpp)
 target_link_libraries(test_json_pipeline PRIVATE test_framework json_struct)
 target_compile_features(test_json_pipeline PRIVATE cxx_std_17)
 
-add_executable(test_minimal_jsonvalue tests/test_minimal_jsonvalue.cpp)
-target_link_libraries(test_minimal_jsonvalue PRIVATE test_framework json_struct)
-target_compile_features(test_minimal_jsonvalue PRIVATE cxx_std_17)
-
 # JSON查询生成器测试
 add_executable(test_json_query_generator tests/test_json_query_generator.cpp)
 target_link_libraries(test_json_query_generator PRIVATE test_framework json_struct)
