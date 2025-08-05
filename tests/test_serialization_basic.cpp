@@ -3,6 +3,7 @@
 #include "../test_framework/test_framework.h"
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 
 using namespace JsonStruct;
 
@@ -197,7 +198,7 @@ TEST(SerializationOptions_LargeData) {
     // 验证可以重新解析
     JsonValue reparsed = JsonValue::parse(result);
     ASSERT_EQ(reparsed["count"].toInt(), 1000);
-    ASSERT_EQ(reparsed["items"].toArray().size(), 1000);
+    ASSERT_EQ(reparsed["items"].toArray()->get().size(), 1000);
 }
 
 int main() {

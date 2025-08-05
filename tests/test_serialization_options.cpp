@@ -201,9 +201,13 @@ TEST(SerializationOptions_SpecialNumbers) {
     // 根据实现，可能抛出异常或将特殊值转换为null
     if (!exceptionCaught) {
         std::string result = json.dump(noSpecial);
+        std::cout << "Special numbers serialization result: " << result << std::endl;
         // 特殊数值应该被转换为null或其他有效JSON值
+        // 兼容部分实现可能输出 'inf' 或 'infinity'，断言更健壮
         ASSERT_TRUE(result.find("NaN") == std::string::npos);
         ASSERT_TRUE(result.find("Infinity") == std::string::npos);
+        ASSERT_TRUE(result.find("inf") == std::string::npos);
+        ASSERT_TRUE(result.find("infinity") == std::string::npos);
     }
     
     // 测试允许特殊数值
@@ -299,5 +303,10 @@ TEST(SerializationOptions_LargeDatasets) {
     // 验证可以重新解析
     JsonValue reparsed = JsonValue::parse(compactResult);
     ASSERT_EQ(reparsed["count"].toInt(), 10000);
-    ASSERT_EQ(reparsed["items"].toArray().size(), 10000);
+    ASSERT_EQ(reparsed["items"].toArray()->get().size(), 10000);
+}
+
+int main() {
+    RUN_ALL_TESTS();
+    return 0;
 }
