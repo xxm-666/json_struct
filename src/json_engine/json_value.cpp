@@ -150,7 +150,7 @@ std::string JsonValue::escapeString(std::string_view str, bool escapeUnicode) {
                     }
                     if (codepoint <= 0xFFFF) {
                         char hex[7];
-                        std::sprintf(hex, "\\u%04x", codepoint);
+                        sprintf_s(hex, "\\u%04x", codepoint);
                         result += hex;
                     }
                     else {
@@ -158,7 +158,7 @@ std::string JsonValue::escapeString(std::string_view str, bool escapeUnicode) {
                         unsigned int high = 0xD800 + ((codepoint - 0x10000) >> 10);
                         unsigned int low = 0xDC00 + ((codepoint - 0x10000) & 0x3FF);
                         char hex[13];
-                        std::sprintf(hex, "\\u%04x\\u%04x", high, low);
+                        sprintf_s(hex, "\\u%04x\\u%04x", high, low);
                         result += hex;
                     }
                     it += (len - 1);

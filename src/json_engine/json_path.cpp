@@ -20,7 +20,7 @@ void JsonPath::parseExpression() {
             nodes_ = JsonPathParser::parseUnionExpression(expression_);
         } else {
             // Tokenize the expression
-            auto tokens = JsonPathTokenizer::tokenize(expression_);
+            const auto tokens = JsonPathTokenizer::tokenize(expression_);
             // Parse tokens into nodes
             nodes_ = JsonPathParser::parse(tokens);
         }
@@ -35,18 +35,18 @@ QueryResult JsonPath::evaluate(const JsonValue& root) const {
     try {
         // Determine which evaluator to use based on expression complexity
         if (SimplePathEvaluator::canHandle(nodes_)) {
-            auto result = SimplePathEvaluator::evaluate(root, nodes_);
-            return {result.first, result.second};
+            auto [fst, snd] = SimplePathEvaluator::evaluate(root, nodes_);
+            return {fst, snd};
         } else if (AdvancedEvaluator::canHandle(nodes_)) {
-            auto result = AdvancedEvaluator::evaluate(root, nodes_);
-            return {result.first, result.second};
+            auto [fst, snd] = AdvancedEvaluator::evaluate(root, nodes_);
+            return {fst, snd};
         } else if (FilterEvaluator::canHandle(nodes_)) {
-            auto result = FilterEvaluator::evaluate(root, nodes_);
-            return {result.first, result.second};
+            auto [fst, snd] = FilterEvaluator::evaluate(root, nodes_);
+            return {fst, snd};
         } else {
             // Mixed complexity - use advanced evaluator as fallback
-            auto result = AdvancedEvaluator::evaluate(root, nodes_);
-            return {result.first, result.second};
+            auto [fst, snd] = AdvancedEvaluator::evaluate(root, nodes_);
+            return {fst, snd};
         }
     } catch (const std::exception&) {
         // Return empty result on evaluation error
@@ -58,18 +58,18 @@ MutableQueryResult JsonPath::evaluateMutable(JsonValue& root) const {
     try {
         // Determine which evaluator to use based on expression complexity
         if (SimplePathEvaluator::canHandle(nodes_)) {
-            auto result = SimplePathEvaluator::evaluateMutable(root, nodes_);
-            return {result.first, result.second};
+            auto [fst, snd] = SimplePathEvaluator::evaluateMutable(root, nodes_);
+            return {fst, snd};
         } else if (FilterEvaluator::canHandle(nodes_)) {
-            auto result = FilterEvaluator::evaluateMutable(root, nodes_);
-            return {result.first, result.second};
+            auto [fst, snd] = FilterEvaluator::evaluateMutable(root, nodes_);
+            return {fst, snd};
         } else if (AdvancedEvaluator::canHandle(nodes_)) {
-            auto result = AdvancedEvaluator::evaluateMutable(root, nodes_);
-            return {result.first, result.second};
+            auto [fst, snd] = AdvancedEvaluator::evaluateMutable(root, nodes_);
+            return {fst, snd};
         } else {
             // Mixed complexity - use advanced evaluator as fallback
-            auto result = AdvancedEvaluator::evaluateMutable(root, nodes_);
-            return {result.first, result.second};
+            auto [fst, snd] = AdvancedEvaluator::evaluateMutable(root, nodes_);
+            return {fst, snd};
         }
     } catch (const std::exception&) {
         // Return empty result on evaluation error
@@ -78,20 +78,20 @@ MutableQueryResult JsonPath::evaluateMutable(JsonValue& root) const {
 }
 
 bool JsonPath::exists(const JsonValue& root) const {
-    auto result = evaluate(root);
+    const auto result = evaluate(root);
     return !result.empty();
 }
 
 std::optional<std::reference_wrapper<const JsonValue>>
 JsonPath::selectFirst(const JsonValue& root) const {
-    auto result = evaluate(root);
+    const auto result = evaluate(root);
     return result.first();
 }
 
 std::vector<std::reference_wrapper<const JsonValue>>
 JsonPath::selectAll(const JsonValue& root) const {
-    auto result = evaluate(root);
-    return result.values;
+    auto [values, paths] = evaluate(root);
+    return values;
 }
 
 std::optional<std::reference_wrapper<JsonValue>>
@@ -102,8 +102,8 @@ JsonPath::selectFirstMutable(JsonValue& root) const {
 
 std::vector<std::reference_wrapper<JsonValue>>
 JsonPath::selectAllMutable(JsonValue& root) const {
-    auto result = evaluateMutable(root);
-    return result.values;
+    auto [values, paths] = evaluateMutable(root);
+    return values;
 }
 
 bool JsonPath::isValidExpression(const std::string& expression) {
@@ -125,7 +125,7 @@ namespace jsonvalue_jsonpath {
 
 jsonpath::QueryResult query(const JsonValue& root, const std::string& path_expression) {
     try {
-        jsonpath::JsonPath path(path_expression);
+        const jsonpath::JsonPath path(path_expression);
         return path.evaluate(root);
     } catch (const jsonpath::JsonPathException&) {
         return {{}, {}};
@@ -134,7 +134,7 @@ jsonpath::QueryResult query(const JsonValue& root, const std::string& path_expre
 
 bool exists(const JsonValue& root, const std::string& path_expression) {
     try {
-        jsonpath::JsonPath path(path_expression);
+        const jsonpath::JsonPath path(path_expression);
         return path.exists(root);
     } catch (const jsonpath::JsonPathException&) {
         return false;
@@ -144,7 +144,7 @@ bool exists(const JsonValue& root, const std::string& path_expression) {
 std::optional<std::reference_wrapper<const JsonValue>>
 selectFirst(const JsonValue& root, const std::string& path_expression) {
     try {
-        jsonpath::JsonPath path(path_expression);
+        const jsonpath::JsonPath path(path_expression);
         return path.selectFirst(root);
     } catch (const jsonpath::JsonPathException&) {
         return std::nullopt;
@@ -163,7 +163,7 @@ selectAll(const JsonValue& root, const std::string& path_expression) {
 
 jsonpath::MutableQueryResult queryMutable(JsonValue& root, const std::string& path_expression) {
     try {
-        jsonpath::JsonPath path(path_expression);
+        const jsonpath::JsonPath path(path_expression);
         return path.evaluateMutable(root);
     } catch (const jsonpath::JsonPathException&) {
         return {{}, {}};
@@ -183,7 +183,7 @@ selectFirstMutable(JsonValue& root, const std::string& path_expression) {
 std::vector<std::reference_wrapper<JsonValue>>
 selectAllMutable(JsonValue& root, const std::string& path_expression) {
     try {
-        jsonpath::JsonPath path(path_expression);
+        const jsonpath::JsonPath path(path_expression);
         return path.selectAllMutable(root);
     } catch (const jsonpath::JsonPathException&) {
         return {};

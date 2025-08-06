@@ -32,7 +32,7 @@ TEST(ErrorRecovery_MalformedObjects) {
             ASSERT_EQ(jsonResult["valid"].toInt(), 123);
         }
         // Recovery behavior may vary, so we're flexible here
-        ASSERT_TRUE(true);
+        ASSERT_TRUE(!jsonResult.contains("key"));
     } catch (const std::exception& e) {
         // Error recovery might not be fully implemented
         // Test that we handle errors gracefully
