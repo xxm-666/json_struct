@@ -6,8 +6,23 @@
 #include <chrono>
 #include <thread>
 #include <vector>
+#include <Windows.h>
+#include <Psapi.h>
 
 using namespace JsonStruct;
+
+// 辅助函数：获取当前内存使用量（简化版本）
+size_t getCurrentMemoryUsage() {
+    // 这里应该实现实际的内存监控
+    // 简化版本返回0，实际项目中应该使用系统API
+#ifdef WIN32
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+        return pmc.WorkingSetSize;
+    }
+#endif
+    return 0;
+}
 
 TEST(JsonStreamParser_LargeDocuments) {
     // 测试大型文档的流式解析
@@ -251,9 +266,7 @@ TEST(JsonStreamParser_ProgressiveReading) {
     ASSERT_TRUE(exceptionCaught);
 }
 
-// 辅助函数：获取当前内存使用量（简化版本）
-size_t getCurrentMemoryUsage() {
-    // 这里应该实现实际的内存监控
-    // 简化版本返回0，实际项目中应该使用系统API
+int main() {
+    RUN_ALL_TESTS();
     return 0;
 }

@@ -1,5 +1,47 @@
 # JsonStruct - 现代 C++ JSON 处理库
 
+---
+
+## 🚦 内置增强测试框架简介
+
+JsonStruct 项目集成了现代化的 C++ 单元测试框架，支持丰富断言、标签、过滤、自动计时和详细报告，兼容所有现有测试代码。
+
+### 主要特性
+- 丰富断言类型（字符串、容器、异常、指针、数值等）
+- 测试标签与过滤，灵活管理测试集
+- 跳过测试与动态跳过支持
+- 自动计时与详细报告
+- 完全向后兼容
+
+### 快速示例
+```cpp
+#include "test_framework/test_framework.h"
+
+TEST(BasicTest) {
+    ASSERT_TRUE(true);
+    ASSERT_EQ(42, 42);
+}
+
+TEST_WITH_TAGS(TagTest, "unit", "fast") {
+    ASSERT_STREQ("hello", "hello");
+}
+
+TEST_SKIP(SkipTest, "暂时跳过")
+
+int main() {
+    TestFramework::TestConfig config;
+    config.verbose = true;
+    config.timing = true;
+    config.includeTags = {"unit"};
+    SET_TEST_CONFIG(config);
+    return RUN_ALL_TESTS();
+}
+```
+
+更多用法详见 `test_framework/ENHANCED_FRAMEWORK_DOCUMENTATION.md`。
+
+---
+
 [![Version](https://img.shields.io/badge/version-1.2.0--dev-blue.svg)](https://github.com/xxm-666/json_struct)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![C++](https://img.shields.io/badge/C%2B%2B-17%2B-orange.svg)](https://en.cppreference.com/w/cpp/17)

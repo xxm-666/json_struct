@@ -18,6 +18,11 @@ add_executable(test_core_functionality tests/test_core_functionality.cpp)
 target_link_libraries(test_core_functionality PRIVATE test_framework json_struct)
 target_compile_features(test_core_functionality PRIVATE cxx_std_17)
 
+# 测试框架增强功能演示
+add_executable(test_framework_enhanced_demo tests/test_framework_enhanced_demo.cpp)
+target_link_libraries(test_framework_enhanced_demo PRIVATE test_framework json_struct)
+target_compile_features(test_framework_enhanced_demo PRIVATE cxx_std_17)
+
 # JSON自动化测试
 add_executable(test_json_auto tests/test_json_auto.cpp)
 target_link_libraries(test_json_auto PRIVATE test_framework json_struct)
