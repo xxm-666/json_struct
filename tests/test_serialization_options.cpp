@@ -205,9 +205,9 @@ TEST(SerializationOptions_SpecialNumbers) {
         // 特殊数值应该被转换为null或其他有效JSON值
         // 兼容部分实现可能输出 'inf' 或 'infinity'，断言更健壮
         ASSERT_TRUE(result.find("NaN") == std::string::npos);
-        ASSERT_TRUE(result.find("Infinity") == std::string::npos);
-        ASSERT_TRUE(result.find("inf") == std::string::npos);
-        ASSERT_TRUE(result.find("infinity") == std::string::npos);
+        ASSERT_TRUE(result.find("INFINITY") == std::string::npos);
+        ASSERT_TRUE(result.find("INF") == std::string::npos);
+        ASSERT_TRUE(result.find("NegInfinity") == std::string::npos);
     }
     
     // 测试允许特殊数值

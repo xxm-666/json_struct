@@ -1,46 +1,13 @@
 #pragma once
 
 #include "json_path_tokenizer.h"
+#include "../json_path.h"
 #include <string>
 #include <vector>
 #include <optional>
 #include <climits>
 
 namespace jsonpath {
-
-/**
- * @brief JSONPath expression node types
- */
-enum class NodeType {
-    ROOT,           // $
-    PROPERTY,       // .name or ['name']
-    INDEX,          // [0] or [-1]
-    SLICE,          // [1:3] or [1:3:2] (with step)
-    WILDCARD,       // *
-    RECURSIVE,      // ..
-    FILTER,         // [?(...)]
-    UNION           // Multiple paths separated by comma
-};
-
-/**
- * @brief JSONPath expression node
- */
-struct PathNode {
-    NodeType type;
-    std::string property;           // For PROPERTY nodes
-    int index = 0;                  // For INDEX nodes  
-    int slice_start = 0;            // For SLICE nodes
-    int slice_end = INT_MAX;        // For SLICE nodes (INT_MAX = end of array)
-    int slice_step = 1;             // For SLICE nodes with step
-    std::string filter_expr;        // For FILTER nodes
-    std::vector<int> union_indices; // For UNION index nodes like [0,2,4]
-    std::vector<std::string> union_paths; // For UNION path expressions
-    
-    PathNode(NodeType t) : type(t) {}
-    PathNode(NodeType t, std::string prop) : type(t), property(std::move(prop)) {}
-    PathNode(NodeType t, int idx) : type(t), index(idx) {}
-};
-
 /**
  * @brief JSONPath parser - converts tokens into AST (Abstract Syntax Tree)
  */

@@ -29,7 +29,7 @@ TEST(JsonStreamParser_LargeDocuments) {
     
     ASSERT_TRUE(parsed.isObject());
     ASSERT_TRUE(parsed["data"].isArray());
-    ASSERT_EQ(parsed["data"].toArray().size(), 10000);
+    ASSERT_EQ(parsed["data"].toArray()->get().size(), 10000);
     
     // 确保解析时间合理
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -181,7 +181,7 @@ TEST(JsonStreamParser_MemoryEfficiency) {
     for (const auto& doc : documents) {
         ASSERT_TRUE(doc.isObject());
         ASSERT_TRUE(doc["items"].isArray());
-        ASSERT_EQ(doc["items"].toArray().size(), 100);
+        ASSERT_EQ(doc["items"].toArray()->get().size(), 100);
     }
     
     // 内存使用应该在合理范围内（这个测试可能需要根据实际情况调整）
@@ -222,7 +222,7 @@ TEST(JsonStreamParser_ConcurrentParsing) {
         ASSERT_TRUE(results[i].isObject());
         ASSERT_EQ(results[i]["thread"].toInt(), i);
         ASSERT_TRUE(results[i]["data"].isArray());
-        ASSERT_EQ(results[i]["data"].toArray().size(), 100);
+        ASSERT_EQ(results[i]["data"].toArray()->get().size(), 100);
     }
 }
 
@@ -239,7 +239,7 @@ TEST(JsonStreamParser_ProgressiveReading) {
     ASSERT_TRUE(complete.isObject());
     ASSERT_TRUE(complete["start"].toBool());
     ASSERT_TRUE(complete["end"].toBool());
-    ASSERT_EQ(complete["data"].toArray().size(), 5);
+    ASSERT_EQ(complete["data"].toArray()->get().size(), 5);
     
     // 测试部分JSON会失败
     bool exceptionCaught = false;

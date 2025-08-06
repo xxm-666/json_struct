@@ -165,7 +165,7 @@ install(TARGETS json_struct
 )
 
 install(FILES src/jsonstruct.h
-              src/version.h
+        "${GENERATED_INCLUDE_DIR}/version.h"
     DESTINATION include/jsonstruct
 )
 
@@ -195,6 +195,11 @@ install(FILES src/json_engine/json_value.h
              src/json_engine/json_number.h
              src/json_engine/json_stream_parser.h
              src/json_engine/json_path.h
+             src/json_engine/json_error.h
+             src/json_engine/json_filter.h
+             src/json_engine/json_pipeline.h
+             src/json_engine/lazy_query_generator.h
+             src/json_engine/json_patch.h
     DESTINATION include/jsonstruct/json_engine
 )
 
@@ -232,8 +237,3 @@ install(EXPORT json_structTargets
         FILE json_structTargets.cmake
         NAMESPACE json_struct::
         DESTINATION lib/cmake/json_struct)
-
-# 更新安装规则，确保头文件路径正确
-install(DIRECTORY src/
-        DESTINATION include/jsonstruct
-        FILES_MATCHING PATTERN "*.h")

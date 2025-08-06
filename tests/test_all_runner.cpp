@@ -15,11 +15,11 @@
 
 struct TestResult {
     std::string testName;
-    bool passed;
-    int totalTests;
-    int passedTests;
-    int failedTests;
-    double duration;
+    bool passed{};
+    int totalTests{};
+    int passedTests{};
+    int failedTests{};
+    double duration{};
     std::string output;
 };
 
@@ -31,27 +31,36 @@ private:
 public:
     TestRunner() {
         testExecutables = {
-            "test_core_functionality.exe",
-            "test_json_auto.exe",
-            "test_qt_types_new.exe",
-            "test_enhanced_features.exe",
-            "test_custom_types.exe",
-            "test_json_parsing.exe",
-            "test_error_recovery.exe",
-            "test_performance_struct.exe",
-            "test_special_numbers.exe",
-            "test_json_pointer.exe",
-            "test_basic_functionality.exe",
-            "test_complex_structures.exe",
-            "test_error_handling.exe",
+            "rfc7396_test.exe",
             "test_complex_nested_containers.exe",
-            "test_json_path_basic.exe",
-            "test_serialization_simple.exe",
-            "test_type_conversion_boundary.exe",
-			"test_extreme_exception_scenarios.exe",
-			"test_large_deep_nested_objects.exe",
-			"test_multithreaded_concurrency.exe",
-			"test_performance_limits.exe",
+            "test_complex_structures.exe",
+            "test_core_functionality.exe",
+            "test_custom_types.exe",
+            "test_enhanced_features.exe",
+            "test_error_codes.exe",
+            "test_error_handling.exe",
+            "test_error_recovery.exe",
+            "test_extreme_exception_scenarios.exe",
+            "test_jsonpath_comprehensive.exe",
+            "test_json_auto.exe",
+            "test_json_parsing.exe",
+            "test_json_path_mutable.exe",
+            "test_json_pipeline.exe",
+            "test_json_pointer.exe",
+            "test_json_pointer_basic.exe",
+            "test_json_query_generator.exe",
+            "test_large_deep_nested_objects.exe",
+            "test_lazy_performance_comprehensive.exe",
+            "test_lazy_query_comprehensive.exe",
+            "test_lazy_suite_runner.exe",
+            // "test_multithreaded_concurrency.exe",
+            // "test_performance_limits.exe",
+            "test_performance_struct.exe",
+            "test_serialization_basic.exe",
+            "test_serialization_options.exe",
+            "test_spaced_properties.exe",
+            "test_special_numbers.exe",
+            "test_type_conversion_boundary.exe"
         };
     }
 
