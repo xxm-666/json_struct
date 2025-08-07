@@ -145,6 +145,31 @@ add_executable(test_large_deep_nested_objects tests/test_large_deep_nested_objec
 target_link_libraries(test_large_deep_nested_objects PRIVATE test_framework json_struct)
 target_compile_features(test_large_deep_nested_objects PRIVATE cxx_std_17)
 
+# 增强型懒查询生成器测试
+add_executable(test_enhanced_lazy_query tests/test_enhanced_lazy_query.cpp)
+target_link_libraries(test_enhanced_lazy_query PRIVATE test_framework json_struct)
+target_compile_features(test_enhanced_lazy_query PRIVATE cxx_std_17)
+
+# 增强型缓存性能测试
+add_executable(test_enhanced_cache_performance tests/test_enhanced_cache_performance.cpp)
+target_link_libraries(test_enhanced_cache_performance PRIVATE test_framework json_struct)
+target_compile_features(test_enhanced_cache_performance PRIVATE cxx_std_17)
+
+# 增强型懒查询综合测试
+add_executable(test_enhanced_lazy_comprehensive tests/test_enhanced_lazy_comprehensive.cpp)
+target_link_libraries(test_enhanced_lazy_comprehensive PRIVATE test_framework json_struct)
+target_compile_features(test_enhanced_lazy_comprehensive PRIVATE cxx_std_17)
+
+# 增强型懒查询综合测试 v2
+add_executable(test_enhanced_lazy_comprehensive_v2 tests/test_enhanced_lazy_comprehensive_v2.cpp)
+target_link_libraries(test_enhanced_lazy_comprehensive_v2 PRIVATE test_framework json_struct)
+target_compile_features(test_enhanced_lazy_comprehensive_v2 PRIVATE cxx_std_17)
+
+# 增强型懒查询边界测试
+add_executable(test_enhanced_lazy_edge_cases tests/test_enhanced_lazy_edge_cases.cpp)
+target_link_libraries(test_enhanced_lazy_edge_cases PRIVATE test_framework json_struct)
+target_compile_features(test_enhanced_lazy_edge_cases PRIVATE cxx_std_17)
+
 # ============================================================================
 # 特殊功能测试
 # ============================================================================

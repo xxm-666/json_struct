@@ -452,7 +452,7 @@ public:
     }
 
     // Serialization
-    std::string dump(const SerializeOptions& options = {}) const {
+    std::string dump(const SerializeOptions& options = SerializeOptions{}) const {
         std::ostringstream oss;
         dumpImpl(oss, options, 0);
         return oss.str();
@@ -466,7 +466,7 @@ public:
     }
 
     // Parsing
-    static JsonValue parse(std::string_view str, const ParseOptions& options = {}) {
+    static JsonValue parse(std::string_view str, const ParseOptions& options = ParseOptions{}) {
         std::error_code ec;
         std::string errMsg;
         JsonValue result = parse(str, options, ec, errMsg);
@@ -544,7 +544,7 @@ public:
     // Safe toJson: catch exceptions, return std::error_code and fill errMsg with details
     std::error_code toJson(std::string& out,
                               std::string& errMsg,
-                              const SerializeOptions& options = {}) const;
+                              const SerializeOptions& options = SerializeOptions{}) const;
     
     // Comparison operators
     bool operator==(const JsonValue& other) const noexcept {

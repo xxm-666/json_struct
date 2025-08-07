@@ -10,16 +10,6 @@
 #include <optional>
 #include <memory>
 
-/**
- * @brief JSON filter and query generator
- *
- * JsonFilter provides powerful JSON data query and filtering capabilities, supporting:
- * - JSONPath expression queries
- * - Custom filter functions
- * - Lazy query generator (performance optimization)
- * - Path construction and data extraction
- */
-
 namespace JsonStruct {
 
 class LazyQueryGenerator;
