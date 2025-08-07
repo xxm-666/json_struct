@@ -132,19 +132,19 @@ public:
     JsonValue() : value_(std::monostate{}) {}
     
     // Basic type constructors
-    explicit JsonValue(std::nullptr_t) : value_(std::monostate{}) {}
-    explicit JsonValue(bool b) : value_(b) {}
-    explicit JsonValue(int i) : value_(JsonNumber(static_cast<int64_t>(i))) {}
-    explicit JsonValue(long long ll) : value_(JsonNumber(ll)) {}  // No more precision loss
-    explicit JsonValue(float f) : value_(JsonNumber(static_cast<double>(f))) {}
-    explicit JsonValue(double d) : value_(JsonNumber(d)) {}
-    explicit JsonValue(const JsonNumber& num) : value_(num) {}  // Support direct construction from JsonNumber
-    explicit JsonValue(JsonNumber&& num) : value_(std::move(num)) {}  // Support move semantics
-    explicit JsonValue(std::string s) : value_(std::move(s)) {}
-    explicit JsonValue(std::string_view sv) : value_(std::string(sv)) {}
-    explicit JsonValue(const char* str) : value_(std::string(str)) {}
-    explicit JsonValue(ArrayType arr) : value_(std::move(arr)) {}
-    explicit JsonValue(ObjectType obj) : value_(std::move(obj)) {}
+    JsonValue(std::nullptr_t) : value_(std::monostate{}) {}
+    JsonValue(bool b) : value_(b) {}
+    JsonValue(int i) : value_(JsonNumber(static_cast<int64_t>(i))) {}
+    JsonValue(long long ll) : value_(JsonNumber(ll)) {}  // No more precision loss
+    JsonValue(float f) : value_(JsonNumber(static_cast<double>(f))) {}
+    JsonValue(double d) : value_(JsonNumber(d)) {}
+    JsonValue(const JsonNumber& num) : value_(num) {}  // Support direct construction from JsonNumber
+    JsonValue(JsonNumber&& num) : value_(std::move(num)) {}  // Support move semantics
+    JsonValue(std::string s) : value_(std::move(s)) {}
+    JsonValue(std::string_view sv) : value_(std::string(sv)) {}
+    JsonValue(const char* str) : value_(std::string(str)) {}
+    JsonValue(ArrayType arr) : value_(std::move(arr)) {}
+    JsonValue(ObjectType obj) : value_(std::move(obj)) {}
 
     // Container constructors - support for more standard containers
     template<typename T, size_t N>

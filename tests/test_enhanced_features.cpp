@@ -77,11 +77,11 @@ TEST(EnhancedFeatures_AdvancedParsing) {
 TEST(EnhancedFeatures_SerializationOptions) {
     // Create test object
     JsonValue obj;
-    obj["name"] = JsonValue("test");
-    obj["value"] = JsonValue(42);
+    obj["name"] = "test";
+    obj["value"] = 42;
     obj["array"] = JsonValue(std::vector<int>{1, 2, 3});
     obj["nested"] = JsonValue();
-    obj["nested"]["key"] = JsonValue("value");
+    obj["nested"]["key"] = "value";
     
     // Default compact format
     std::string compact = obj.dump();
@@ -121,7 +121,7 @@ TEST(EnhancedFeatures_JsonPointer) {
         ASSERT_EQ(version.toString(), "1.0");
         
         // Modify value
-        parsed.at("/users/1/age") = JsonValue(26);
+        parsed.at("/users/1/age") = 26;
         ASSERT_EQ(parsed.at("/users/1/age").toInt(), 26);
     } catch (const std::exception& e) {
         // If JSON Pointer is not implemented, skip this test
@@ -131,10 +131,10 @@ TEST(EnhancedFeatures_JsonPointer) {
 
 TEST(EnhancedFeatures_OptionalInterface) {
     JsonValue obj;
-    obj["number"] = JsonValue(42);
-    obj["text"] = JsonValue("hello");
-    obj["flag"] = JsonValue(true);
-    
+    obj["number"] = 42;
+    obj["text"] = "hello";
+    obj["flag"] = true;
+
     // Test successful retrieval
     auto num = obj["number"].getNumber();
     ASSERT_TRUE(num.has_value());
@@ -177,7 +177,7 @@ TEST(EnhancedFeatures_MoveSemantics) {
     auto createLargeArray = []() {
         JsonValue::ArrayType arr;
         for (int i = 0; i < 1000; ++i) { // Reduced for faster testing
-            arr.emplace_back(JsonValue(i));
+            arr.emplace_back(i);
         }
         return JsonValue(std::move(arr));
     };
@@ -210,7 +210,7 @@ TEST(EnhancedFeatures_ErrorHandling) {
     
     // Test invalid JSON pointer (if supported)
     JsonValue obj;
-    obj["test"] = JsonValue(42);
+    obj["test"] = 42;
     try {
         obj.at("/invalid/pointer");
         // If no exception, JSON pointer might not be fully implemented
