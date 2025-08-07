@@ -126,11 +126,10 @@ AdvancedEvaluator::evaluateMutable(JsonStruct::JsonValue& root, const std::vecto
                         auto& value = current_values[i].get();
                         const std::string& path = current_paths[i];
                         
-                        if (auto& arr_opt = value.toArray()) {
+                        if (auto* arr_ptr = value.getArray()) {
                             // Expand array elements for filtering
-                            auto& arr = arr_opt->get();
-                            for (size_t j = 0; j < arr.size(); ++j) {
-                                filter_inputs.emplace_back(arr[j]);
+                            for (size_t j = 0; j < arr_ptr->size(); ++j) {
+                                filter_inputs.emplace_back((*arr_ptr)[j]);
                                 filter_paths.push_back(path + "[" + std::to_string(j) + "]");
                             }
                         } else {
