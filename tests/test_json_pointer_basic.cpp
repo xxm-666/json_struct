@@ -170,14 +170,16 @@ TEST(JsonPath_TestJsonGenerator) {
   std::unordered_map<int, JsonValue> testData;
   for (int i = 0; i < 1000; ++i) {
     JsonValue::ObjectType item;
-    item["id"] = JsonValue(i);
-    item["name"] = JsonValue("Item " + std::to_string(i));
-    item["value"] = JsonValue(i * 1.5);
-    testData[i] = JsonValue(std::move(item));
+    item["id"] = i;
+    item["name"] = "Item " + std::to_string(i);
+    item["value"] = i * 1.5;
+    testData[i] = std::move(item);
   }
 
-  std::cout << "data 1:" << testData[0]["name"].toString() << std::endl;
-  std::cout << "data 999:" << testData[999]["name"].toString() << std::endl;
+  ASSERT_EQ(testData.size(), 1000);
+  ASSERT_EQ(testData[525]["id"].toInt(), 525);
+  ASSERT_STREQ(testData[200]["name"].toString().c_str(), "Item 200");
+  ASSERT_NEAR(testData[999]["value"].toDouble(), 1498.5, 0.001);
 }
 
 int main() {

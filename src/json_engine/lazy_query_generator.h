@@ -5,7 +5,7 @@
 #include <stack>
 #include <optional>
 #include <memory>
-#include "json_filter.h" // Use types from json_filter.h
+#include "json_filter.h"
 #include "json_path.h"
 
 namespace JsonStruct {
@@ -35,16 +35,17 @@ private:
     };
     const JsonFilter* filter_;
     const JsonValue* root_;
+
     std::string expression_;
     FilterFunction filterFunc_;
     bool useFilterFunc_ = false;
     bool initialized_ = false;
-    std::unique_ptr<jsonpath::JsonPath> jsonPath_;
     std::vector<jsonpath::PathNode> nodes_;
     std::stack<Frame> stack_;
     std::optional<QueryResult> current_;
     size_t maxResults_ = 0;
     size_t resultCount_ = 0;
+
     void initialize();
     void advance();
     void expandFrameChildren(const Frame& frame);

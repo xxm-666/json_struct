@@ -75,8 +75,7 @@ void LazyQueryGenerator::initialize() {
         return;
     }
     try {
-        jsonPath_ = std::make_unique<jsonpath::JsonPath>(expression_);
-        nodes_ = jsonPath_->getNodes();
+        nodes_ = jsonpath::JsonPath::parse(expression_).getNodes();
         while (!stack_.empty()) {
             stack_.pop();
         }
