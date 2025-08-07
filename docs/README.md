@@ -61,7 +61,7 @@
 
 ### 🔗 相关资源
 
-- **源代码**: `src/enhanced_lazy_query_generator.h` 和 `src/enhanced_lazy_query_generator.cpp`
+- **源代码**: `src/lazy_query_generator.h` 和 `src/lazy_query_generator.cpp`
 - **测试用例**: `tests/test_enhanced_lazy_*.cpp`
 - **构建配置**: `CMakeLists.txt`
 - **更新日志**: `../CHANGELOG.md`

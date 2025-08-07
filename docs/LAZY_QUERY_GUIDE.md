@@ -2,7 +2,7 @@
 
 ## 概述
 
-增强型懒查询生成器 (`EnhancedLazyQueryGenerator`) 是JsonStruct库中的高级查询组件，提供完整的JSONPath语法支持、智能缓存系统和性能监控功能。
+懒查询生成器 (`LazyQueryGenerator`) 是JsonStruct库中的高级查询组件，提供完整的JSONPath语法支持、智能缓存系统和性能监控功能。
 
 ## 快速开始
 

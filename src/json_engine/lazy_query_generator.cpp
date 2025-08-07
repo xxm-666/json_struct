@@ -1,340 +1,771 @@
 #include "lazy_query_generator.h"
-#include "json_filter.h"
+#include "json_value.h"
+#include "internal/json_path_tokenizer.h"
+#include "internal/json_path_parser.h"
+#include "internal/json_path_simple_evaluator.h"
+#include "internal/json_path_filter_evaluator.h"
+#include "internal/json_path_advanced_evaluator.h"
 #include <algorithm>
 #include <stdexcept>
-#include <memory>
+#include <sstream>
+#include <random>
+#include <iomanip>
 
 namespace JsonStruct {
 
-LazyQueryGenerator::LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, const std::string& expression)
-    : filter_(filter), root_(root), expression_(expression), useFilterFunc_(false), initialized_(false), 
-      maxResults_(0), resultCount_(0) {
-    // Delayed initialization
+LazyQueryGenerator::LazyQueryGenerator(
+    const JsonFilter* filter, const JsonValue* root, 
+    const std::string& expression, size_t maxResults)
+    : filter_(filter), exhausted_(false) {
+    
+    // Initialize cache
+    lastCacheCleanup_ = std::chrono::steady_clock::now();
+    
+    context_.root = root;
+    context_.expression = expression;
+    context_.maxResults = maxResults;
+    context_.resultCount = 0;
+    context_.useFilterFunc = false;
+    
+    parseExpression(expression);
+    determineEvaluationStrategy();
 }
 
-LazyQueryGenerator::LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, FilterFunction func)
-    : filter_(filter), root_(root), filterFunc_(func), useFilterFunc_(true), initialized_(false), 
-      maxResults_(0), resultCount_(0) {
-    while (!stack_.empty()) {
-        stack_.pop();
-    }
-    stack_.emplace(root_, "$", 0);
+LazyQueryGenerator::LazyQueryGenerator(
+    const JsonFilter* filter, const JsonValue* root, 
+    FilterFunction func)
+    : filter_(filter), exhausted_(false) {
+    
+    context_.root = root;
+    context_.maxResults = 0;
+    context_.resultCount = 0;
+    context_.useFilterFunc = true;
+    context_.filterFunc = std::move(func);
+    
+    // For filter functions, we use a simple traversal approach
     initialized_ = true;
-    advance();
-}
-
-LazyQueryGenerator::LazyQueryGenerator(const JsonFilter* filter, const JsonValue* root, const std::string& expression, size_t maxResults)
-    : filter_(filter), root_(root), expression_(expression), useFilterFunc_(false), initialized_(false), 
-      maxResults_(maxResults), resultCount_(0) {
-    // Delayed initialization with result limit
+    processingStack_.emplace(root, "$", 0, 0);
 }
 
 bool LazyQueryGenerator::hasNext() const {
-    if (maxResults_ > 0 && resultCount_ >= maxResults_) {
+    if (exhausted_ || (context_.maxResults > 0 && context_.resultCount >= context_.maxResults)) {
         return false;
     }
+    
     if (!initialized_) {
         const_cast<LazyQueryGenerator*>(this)->initialize();
     }
-    if (useFilterFunc_) {
-        if (!current_.has_value()) {
-            const_cast<LazyQueryGenerator*>(this)->advance();
-        }
-        return current_.has_value();
+    
+    if (!currentResult_.has_value()) {
+        const_cast<LazyQueryGenerator*>(this)->advance();
     }
-    return current_.has_value();
+    
+    return currentResult_.has_value();
 }
 
-QueryResult LazyQueryGenerator::next() {
+JsonStruct::QueryResult LazyQueryGenerator::next() {
     if (!hasNext()) {
         throw std::runtime_error("No more results available");
     }
-    QueryResult result = *current_;
-    resultCount_++;
-    advance();
+    
+    auto result = *currentResult_;
+    currentResult_.reset();
+    context_.resultCount++;
+    resultsGenerated_++;  // Performance tracking
+    
     return result;
 }
 
-std::vector<QueryResult> LazyQueryGenerator::nextBatch(size_t maxCount) {
-    std::vector<QueryResult> results;
+std::vector<JsonStruct::QueryResult> LazyQueryGenerator::nextBatch(size_t maxCount) {
+    std::vector<JsonStruct::QueryResult> results;
     results.reserve(maxCount);
+    
     while (hasNext() && results.size() < maxCount) {
         results.push_back(next());
     }
+    
     return results;
 }
 
-void LazyQueryGenerator::initialize() {
-    if (initialized_) {
-        return;
+void LazyQueryGenerator::reset() {
+    initialized_ = false;
+    exhausted_ = false;
+    context_.resultCount = 0;
+    context_.currentNodeIndex = 0;
+    context_.currentUnionIndex = 0;
+    currentResult_.reset();
+    
+    // Clear stack
+    while (!processingStack_.empty()) {
+        processingStack_.pop();
     }
-    if (useFilterFunc_) {
-        current_.reset();
-        advance();
-        initialized_ = true;
-        return;
+    
+    // DON'T clear cache on reset - this allows cache reuse across resets
+    // DON'T reset cache hit/query counters - preserve them for performance measurement
+    // cacheHits_ = 0;
+    // cacheQueries_ = 0;
+    
+    // Reset performance counters
+    framesProcessed_ = 0;
+    resultsGenerated_ = 0;
+    
+    // Force reinitialization by calling initialize again
+    initialize();
+}
+
+LazyQueryGenerator::Progress LazyQueryGenerator::getProgress() const {
+    Progress progress;
+    progress.generatedCount = context_.resultCount;
+    progress.estimatedTotal = 0;
+    progress.hasEstimate = false;
+    
+    // For some simple cases, we can provide estimates
+    if (!context_.useFilterFunc && !context_.isUnionExpression) {
+        // This is a simplified estimation - in practice, this would need
+        // much more sophisticated analysis of the JSON structure
+        progress.hasEstimate = false; // Keep it simple for now
     }
+    
+    return progress;
+}
+
+void LazyQueryGenerator::parseExpression(const std::string& expression) {
     try {
-        nodes_ = jsonpath::JsonPath::parse(expression_).getNodes();
-        while (!stack_.empty()) {
-            stack_.pop();
+        // Check if this is a union expression
+        if (jsonpath::JsonPathParser::hasTopLevelComma(expression)) {
+            setupUnionExpression(expression);
+            return;
         }
-        stack_.emplace(root_, "$", 0);
-        advance();
-        initialized_ = true;
-    } catch (const std::exception&) {
-        initialized_ = true;
-        current_.reset();
+        
+        // Parse the expression into nodes
+        auto tokens = jsonpath::JsonPathTokenizer::tokenize(expression);
+        context_.nodes = jsonpath::JsonPathParser::parse(tokens);
+        
+    } catch (const std::exception& e) {
+        // If parsing fails, create an empty node list which will result in no matches
+        context_.nodes.clear();
     }
+}
+
+void LazyQueryGenerator::setupUnionExpression(const std::string& expression) {
+    context_.isUnionExpression = true;
+    
+    // Parse union expression into individual paths
+    size_t pos = 0;
+    size_t bracketDepth = 0;
+    size_t start = 0;
+    
+    for (size_t i = 0; i < expression.length(); ++i) {
+        char c = expression[i];
+        
+        if (c == '[') {
+            bracketDepth++;
+        } else if (c == ']') {
+            bracketDepth--;
+        } else if (c == ',' && bracketDepth == 0) {
+            // Found a top-level comma
+            std::string path = expression.substr(start, i - start);
+            // Trim whitespace
+            size_t pathStart = path.find_first_not_of(" \t\n\r");
+            size_t pathEnd = path.find_last_not_of(" \t\n\r");
+            if (pathStart != std::string::npos && pathEnd != std::string::npos) {
+                context_.unionPaths.push_back(path.substr(pathStart, pathEnd - pathStart + 1));
+            }
+            start = i + 1;
+        }
+    }
+    
+    // Add the last path
+    if (start < expression.length()) {
+        std::string path = expression.substr(start);
+        size_t pathStart = path.find_first_not_of(" \t\n\r");
+        size_t pathEnd = path.find_last_not_of(" \t\n\r");
+        if (pathStart != std::string::npos && pathEnd != std::string::npos) {
+            context_.unionPaths.push_back(path.substr(pathStart, pathEnd - pathStart + 1));
+        }
+    }
+}
+
+void LazyQueryGenerator::determineEvaluationStrategy() {
+    if (context_.useFilterFunc || context_.isUnionExpression) {
+        useOptimizedEvaluation_ = false;
+        return;
+    }
+    
+    // Check if we can use specialized evaluators
+    if (canUseSimpleEvaluation()) {
+        optimizeForSimplePath();
+    } else if (canUseFilterEvaluation()) {
+        optimizeForFilterPath();
+    } else if (canUseAdvancedEvaluation()) {
+        optimizeForAdvancedPath();
+    } else {
+        useOptimizedEvaluation_ = false;
+    }
+}
+
+void LazyQueryGenerator::initialize() {
+    if (initialized_) return;
+    
+    if (context_.useFilterFunc) {
+        // Already initialized in constructor
+        return;
+    }
+    
+    if (context_.isUnionExpression) {
+        processNextUnionPath();
+    } else {
+        // Start with root node
+        processingStack_.emplace(context_.root, "$", 0, 0);
+    }
+    
+    initialized_ = true;
 }
 
 void LazyQueryGenerator::advance() {
-    current_.reset();
-    if (maxResults_ > 0 && resultCount_ >= maxResults_) {
+    currentResult_.reset();
+    
+    if (exhausted_ || shouldContinueProcessing() == false) {
         return;
     }
-    if (useFilterFunc_) {
-        while (!stack_.empty()) {
-            Frame currentFrame = stack_.top();
-            stack_.pop();
-            if (filterFunc_(*currentFrame.value, currentFrame.path)) {
-                size_t depth = std::count(currentFrame.path.begin(), currentFrame.path.end(), '.') + 
-                             std::count(currentFrame.path.begin(), currentFrame.path.end(), '[');
-                current_ = QueryResult(currentFrame.value, currentFrame.path, depth);
-                resultCount_++;
-                expandFrameChildren(currentFrame);
+    
+    if (context_.useFilterFunc) {
+        // Handle filter function case
+        while (!processingStack_.empty() && !currentResult_.has_value()) {
+            auto frame = processingStack_.top();
+            processingStack_.pop();
+            
+            // Check if current value matches filter
+            if (context_.filterFunc(*frame.value, frame.path)) {
+                currentResult_ = JsonStruct::QueryResult(frame.value, frame.path, frame.depth);
                 return;
             }
-            expandFrameChildren(currentFrame);
+            
+            // Expand children for further processing
+            expandChildren(frame);
+        }
+        
+        if (!currentResult_.has_value()) {
+            exhausted_ = true;
         }
         return;
     }
-    while (!stack_.empty()) {
-        Frame& frame = stack_.top();
-        if (frame.nodeIndex == nodes_.size()) {
-            size_t depth = std::count(frame.path.begin(), frame.path.end(), '.') + 
-                         std::count(frame.path.begin(), frame.path.end(), '[');
-            current_ = QueryResult(frame.value, frame.path, depth);
-            stack_.pop();
-            return;
+    
+    // Handle JSONPath expression case
+    while (!processingStack_.empty() && !currentResult_.has_value()) {
+        if (!processCurrentFrame()) {
+            break;
         }
-        const auto& node = nodes_[frame.nodeIndex];
-        bool shouldContinue = processNode(frame, node);
-        if (!shouldContinue) {
-            stack_.pop();
+    }
+    
+    // Check if we need to process next union path
+    if (!currentResult_.has_value() && context_.isUnionExpression) {
+        processNextUnionPath();
+        if (!processingStack_.empty()) {
+            advance(); // Recursively process the next union path
         }
-        if (current_.has_value()) {
-            return;
-        }
+    }
+    
+    if (!currentResult_.has_value()) {
+        exhausted_ = true;
     }
 }
 
-bool LazyQueryGenerator::processNode(Frame& frame, const jsonpath::PathNode& node) {
+bool LazyQueryGenerator::processCurrentFrame() {
+    if (processingStack_.empty()) {
+        return false;
+    }
+
+    auto frame = processingStack_.top();
+    processingStack_.pop();
+    
+    // Performance tracking
+    framesProcessed_++;
+    
+    // Check cache for completed results from this expression and path pattern
+    if (cacheEnabled_ && frame.nodeIndex >= context_.nodes.size()) {
+        // Only cache final results, not intermediate processing
+        std::string cacheKey = generateCacheKey(frame.path, context_.expression);
+        std::vector<JsonValue> cachedResults;
+        if (getCachedResults(cacheKey, cachedResults) && !cachedResults.empty()) {
+            // Use cached result
+            currentResult_ = JsonStruct::QueryResult(&cachedResults[0], frame.path, frame.depth);
+            resultsGenerated_++;
+            return true;
+        }
+    }
+
+    // Check if we've processed all nodes for this frame
+    if (frame.nodeIndex >= context_.nodes.size()) {
+        // We've reached the end of the path - this is a result
+        currentResult_ = JsonStruct::QueryResult(frame.value, frame.path, frame.depth);
+        resultsGenerated_++;
+        
+        // Cache this result for future queries
+        if (cacheEnabled_) {
+            std::string cacheKey = generateCacheKey(frame.path, context_.expression);
+            std::vector<JsonValue> resultToCache = {*frame.value};
+            storeCachedResults(cacheKey, resultToCache);
+        }
+        
+        return true;
+    }
+    
+    // Process the next node
+    const auto& node = context_.nodes[frame.nodeIndex];
+    return evaluateNode(frame, node);
+}
+
+bool LazyQueryGenerator::evaluateNode(ProcessingFrame& frame, const jsonpath::PathNode& node) {
     switch (node.type) {
         case jsonpath::NodeType::ROOT:
-            frame.nodeIndex++;
-            return true;
+            return processRootNode(frame);
+            
         case jsonpath::NodeType::PROPERTY:
-            return processProperty(frame, node.property);
+            return processPropertyNode(frame, node.property);
+            
         case jsonpath::NodeType::INDEX:
-            return processIndex(frame, node.index);
+            return processIndexNode(frame, node.index);
+            
         case jsonpath::NodeType::SLICE:
-            return processSlice(frame, node.slice_start, node.slice_end);
+            return processSliceNode(frame, node.slice_start, node.slice_end, node.slice_step);
+            
         case jsonpath::NodeType::WILDCARD:
-            return processWildcard(frame);
+            return processWildcardNode(frame);
+            
         case jsonpath::NodeType::RECURSIVE:
-            return processRecursive(frame, node.property);
+            return processRecursiveNode(frame, node.property);
+            
+        case jsonpath::NodeType::FILTER:
+            return processFilterNode(frame, node.filter_expr);
+            
+        case jsonpath::NodeType::UNION:
+            return processUnionNode(frame, node);
+            
         default:
             return false;
     }
 }
 
-bool LazyQueryGenerator::processProperty(Frame& frame, const std::string& property) {
-    if (frame.value->isObject()) {
-        const auto* obj = frame.value->getObject();
-        if (obj) {
-            auto it = obj->find(property);
-            if (it != obj->end()) {
-                frame.value = &it->second;
-                frame.path += "." + property;
-                frame.nodeIndex++;
-                return true;
+bool LazyQueryGenerator::processRootNode(ProcessingFrame& frame) {
+    // Root node just advances to the next node
+    frame.nodeIndex++;
+    processingStack_.push(frame);
+    return true;
+}
+
+bool LazyQueryGenerator::processPropertyNode(ProcessingFrame& frame, const std::string& property) {
+    if (!frame.value->isObject()) {
+        return true; // Continue processing, but this path won't yield results
+    }
+    
+    const auto* obj = frame.value->getObject();
+    if (!obj) {
+        return true;
+    }
+    
+    auto it = obj->find(property);
+    if (it != obj->end()) {
+        ProcessingFrame newFrame(&it->second, buildPath(frame.path, property), frame.nodeIndex + 1, frame.depth + 1);
+        processingStack_.push(newFrame);
+    }
+    
+    return true;
+}
+
+bool LazyQueryGenerator::processIndexNode(ProcessingFrame& frame, int index) {
+    if (!frame.value->isArray()) {
+        return true;
+    }
+    
+    const auto* arr = frame.value->getArray();
+    if (!arr) {
+        return true;
+    }
+    
+    // Handle negative indexing
+    int actualIndex = index;
+    if (index < 0) {
+        actualIndex = static_cast<int>(arr->size()) + index;
+    }
+    
+    if (actualIndex >= 0 && actualIndex < static_cast<int>(arr->size())) {
+        const auto& element = (*arr)[actualIndex];
+        ProcessingFrame newFrame(&element, buildArrayPath(frame.path, actualIndex), frame.nodeIndex + 1, frame.depth + 1);
+        processingStack_.push(newFrame);
+    }
+    
+    return true;
+}
+
+bool LazyQueryGenerator::processSliceNode(ProcessingFrame& frame, int start, int end, int step) {
+    if (!frame.value->isArray()) {
+        return true;
+    }
+    
+    const auto* arr = frame.value->getArray();
+    if (!arr || arr->empty()) {
+        return true;
+    }
+    
+    int arraySize = static_cast<int>(arr->size());
+    
+    // Normalize slice parameters
+    int actualStart = start;
+    int actualEnd = (end == INT_MAX) ? arraySize : end;
+    
+    if (actualStart < 0) actualStart += arraySize;
+    if (actualEnd < 0) actualEnd += arraySize;
+    
+    actualStart = std::max(0, std::min(actualStart, arraySize));
+    actualEnd = std::max(0, std::min(actualEnd, arraySize));
+    
+    // Generate frames for slice elements (in reverse order for correct stack processing)
+    std::vector<int> indices;
+    for (int i = actualStart; i < actualEnd && i < arraySize; i += step) {
+        indices.push_back(i);
+    }
+    
+    // Push in reverse order so they're processed in correct order
+    for (auto it = indices.rbegin(); it != indices.rend(); ++it) {
+        const auto& element = (*arr)[*it];
+        ProcessingFrame newFrame(&element, buildArrayPath(frame.path, *it), frame.nodeIndex + 1, frame.depth + 1);
+        processingStack_.push(newFrame);
+    }
+    
+    return true;
+}
+
+bool LazyQueryGenerator::processWildcardNode(ProcessingFrame& frame) {
+    expandChildren(frame);
+    return true;
+}
+
+bool LazyQueryGenerator::processRecursiveNode(ProcessingFrame& frame, const std::string& property) {
+    // For recursive descent, we need to:
+    // 1. Check if current node matches (if property is specified)
+    // 2. Recursively process all children
+    
+    if (frame.recursiveState == ProcessingFrame::RecursiveState::None) {
+        frame.recursiveState = ProcessingFrame::RecursiveState::ProcessingSelf;
+        frame.recursiveProperty = property;
+    }
+    
+    if (frame.recursiveState == ProcessingFrame::RecursiveState::ProcessingSelf) {
+        // Check if current node matches the property (if specified)
+        bool matched = false;
+        if (property.empty()) {
+            // Empty property means match everything
+            ProcessingFrame newFrame(frame.value, frame.path, frame.nodeIndex + 1, frame.depth);
+            processingStack_.push(newFrame);
+            matched = true;
+        } else if (frame.value->isObject()) {
+            const auto* obj = frame.value->getObject();
+            if (obj) {
+                auto it = obj->find(property);
+                if (it != obj->end()) {
+                    ProcessingFrame newFrame(&it->second, buildPath(frame.path, property), frame.nodeIndex + 1, frame.depth + 1);
+                    processingStack_.push(newFrame);
+                    matched = true;
+                }
+            }
+        }
+        
+        frame.recursiveState = ProcessingFrame::RecursiveState::ProcessingChildren;
+        processingStack_.push(frame);
+        return true;
+    }
+    
+    if (frame.recursiveState == ProcessingFrame::RecursiveState::ProcessingChildren) {
+        // Add recursive frames for all children
+        if (frame.value->isObject()) {
+            const auto* obj = frame.value->getObject();
+            if (obj) {
+                for (const auto& [key, value] : *obj) {
+                    ProcessingFrame childFrame(&value, buildPath(frame.path, key), frame.nodeIndex, frame.depth + 1);
+                    childFrame.recursiveState = ProcessingFrame::RecursiveState::ProcessingSelf;
+                    childFrame.recursiveProperty = property;
+                    processingStack_.push(childFrame);
+                }
+            }
+        } else if (frame.value->isArray()) {
+            const auto* arr = frame.value->getArray();
+            if (arr) {
+                for (size_t i = 0; i < arr->size(); ++i) {
+                    ProcessingFrame childFrame(&(*arr)[i], buildArrayPath(frame.path, i), frame.nodeIndex, frame.depth + 1);
+                    childFrame.recursiveState = ProcessingFrame::RecursiveState::ProcessingSelf;
+                    childFrame.recursiveProperty = property;
+                    processingStack_.push(childFrame);
+                }
             }
         }
     }
-    return false;
+    
+    return true;
 }
 
-bool LazyQueryGenerator::processIndex(Frame& frame, int index) {
-    if (frame.value->isArray()) {
-        const auto* arr = frame.value->getArray();
-        if (arr && index >= 0 && static_cast<size_t>(index) < arr->size()) {
-            frame.value = &(*arr)[index];
-            frame.path += "[" + std::to_string(index) + "]";
-            frame.nodeIndex++;
-            return true;
-        }
+bool LazyQueryGenerator::processFilterNode(ProcessingFrame& frame, const std::string& filterExpr) {
+    if (!frame.value->isArray()) {
+        return true;
     }
-    return false;
-}
-
-bool LazyQueryGenerator::processSlice(Frame& frame, int start, int end) {
-    if (!frame.value->isArray()) return false;
+    
+    // Apply filter to array elements
+    auto filteredElements = applyFilterToArray(*frame.value, filterExpr, frame.path);
+    
+    // Add matching elements to processing stack
     const auto* arr = frame.value->getArray();
-    if (!arr) return false;
-    if (frame.arraySize == 0) {
-        int actualEnd = end == -1 ? static_cast<int>(arr->size()) : end;
-        if (start < 0) start = 0;
-        if (actualEnd > static_cast<int>(arr->size())) actualEnd = static_cast<int>(arr->size());
-        frame.arrayIndex = start;
-        frame.arraySize = actualEnd;
-    }
-    if (frame.arrayIndex < frame.arraySize) {
-        Frame newFrame(frame.value, frame.path, frame.nodeIndex);
-        newFrame.value = &(*arr)[frame.arrayIndex];
-        newFrame.path = frame.path + "[" + std::to_string(frame.arrayIndex) + "]";
-        newFrame.nodeIndex = frame.nodeIndex + 1;
-        frame.arrayIndex++;
-        if (frame.arrayIndex >= frame.arraySize) {
-            stack_.pop();
+    if (arr) {
+        for (size_t i = 0; i < arr->size(); ++i) {
+            // Check if this element passed the filter
+            auto elementIt = std::find_if(filteredElements.begin(), filteredElements.end(),
+                [&](const std::reference_wrapper<const JsonValue>& ref) {
+                    return &ref.get() == &(*arr)[i];
+                });
+            
+            if (elementIt != filteredElements.end()) {
+                ProcessingFrame newFrame(&(*arr)[i], buildArrayPath(frame.path, i), frame.nodeIndex + 1, frame.depth + 1);
+                processingStack_.push(newFrame);
+            }
         }
-        stack_.push(newFrame);
+    }
+    
+    return true;
+}
+
+bool LazyQueryGenerator::processUnionNode(ProcessingFrame& frame, const jsonpath::PathNode& node) {
+    // Union nodes should be handled at a higher level
+    // This shouldn't be reached in normal processing
+    return false;
+}
+
+void LazyQueryGenerator::expandChildren(ProcessingFrame& frame) {
+    if (frame.value->isObject()) {
+        const auto* obj = frame.value->getObject();
+        if (obj) {
+            for (const auto& [key, value] : *obj) {
+                ProcessingFrame childFrame(&value, buildPath(frame.path, key), frame.nodeIndex + 1, frame.depth + 1);
+                processingStack_.push(childFrame);
+            }
+        }
+    } else if (frame.value->isArray()) {
+        const auto* arr = frame.value->getArray();
+        if (arr) {
+            // Push array elements in reverse order to maintain correct order when processed from stack
+            for (int i = static_cast<int>(arr->size()) - 1; i >= 0; --i) {
+                ProcessingFrame childFrame(&(*arr)[i], buildArrayPath(frame.path, i), frame.nodeIndex + 1, frame.depth + 1);
+                processingStack_.push(childFrame);
+            }
+        }
+    }
+}
+
+void LazyQueryGenerator::processNextUnionPath() {
+    if (!context_.isUnionExpression || context_.currentUnionIndex >= context_.unionPaths.size()) {
+        return;
+    }
+    
+    // Parse the next union path
+    const std::string& path = context_.unionPaths[context_.currentUnionIndex++];
+    
+    try {
+        auto tokens = jsonpath::JsonPathTokenizer::tokenize(path);
+        context_.nodes = jsonpath::JsonPathParser::parse(tokens);
+        context_.currentNodeIndex = 0;
+        
+        // Clear stack and start fresh with this path
+        while (!processingStack_.empty()) {
+            processingStack_.pop();
+        }
+        
+        processingStack_.emplace(context_.root, "$", 0, 0);
+        
+    } catch (const std::exception&) {
+        // If parsing fails, try the next path
+        if (context_.currentUnionIndex < context_.unionPaths.size()) {
+            processNextUnionPath();
+        }
+    }
+}
+
+bool LazyQueryGenerator::evaluateFilter(const std::string& filterExpr, const JsonValue& context, const std::string& path) {
+    try {
+        return jsonpath::FilterEvaluator::evaluateFilterCondition(filterExpr, context);
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+std::vector<std::reference_wrapper<const JsonValue>> LazyQueryGenerator::applyFilterToArray(
+    const JsonValue& arrayValue, const std::string& filterExpr, const std::string& basePath) {
+    
+    std::vector<std::reference_wrapper<const JsonValue>> results;
+    
+    if (!arrayValue.isArray()) {
+        return results;
+    }
+    
+    const auto* arr = arrayValue.getArray();
+    if (!arr) {
+        return results;
+    }
+    
+    for (size_t i = 0; i < arr->size(); ++i) {
+        const auto& element = (*arr)[i];
+        if (evaluateFilter(filterExpr, element, buildArrayPath(basePath, i))) {
+            results.emplace_back(element);
+        }
+    }
+    
+    return results;
+}
+
+std::string LazyQueryGenerator::buildPath(const std::string& basePath, const std::string& component) {
+    if (basePath == "$") {
+        return "$." + component;
+    }
+    return basePath + "." + component;
+}
+
+std::string LazyQueryGenerator::buildArrayPath(const std::string& basePath, size_t index) {
+    return basePath + "[" + std::to_string(index) + "]";
+}
+
+bool LazyQueryGenerator::shouldContinueProcessing() const {
+    if (context_.maxResults > 0 && context_.resultCount >= context_.maxResults) {
+        return false;
+    }
+    return !exhausted_;
+}
+
+// Optimization methods (simplified implementations)
+bool LazyQueryGenerator::canUseSimpleEvaluation() const {
+    return jsonpath::SimplePathEvaluator::canHandle(context_.nodes);
+}
+
+bool LazyQueryGenerator::canUseFilterEvaluation() const {
+    return jsonpath::FilterEvaluator::canHandle(context_.nodes);
+}
+
+bool LazyQueryGenerator::canUseAdvancedEvaluation() const {
+    return jsonpath::AdvancedEvaluator::canHandle(context_.nodes);
+}
+
+void LazyQueryGenerator::optimizeForSimplePath() {
+    useOptimizedEvaluation_ = true;
+    // In a real implementation, we could use the SimplePathEvaluator
+    // for better performance on simple paths
+}
+
+void LazyQueryGenerator::optimizeForFilterPath() {
+    useOptimizedEvaluation_ = true;
+    // In a real implementation, we could use the FilterEvaluator
+    // for better performance on filter expressions
+}
+
+void LazyQueryGenerator::optimizeForAdvancedPath() {
+    useOptimizedEvaluation_ = true;
+    // In a real implementation, we could use the AdvancedEvaluator
+    // for better performance on complex expressions
+}
+
+std::string LazyQueryGenerator::getPerformanceStats() const {
+    std::ostringstream oss;
+    oss << "Enhanced Lazy Query Generator Performance Stats:\n";
+    oss << "  Frames Processed: " << framesProcessed_ << "\n";
+    oss << "  Results Generated: " << resultsGenerated_ << "\n";
+    
+    if (framesProcessed_ > 0) {
+        double efficiency = (static_cast<double>(resultsGenerated_) / framesProcessed_) * 100.0;
+        oss << "  Efficiency Ratio: " << std::fixed << std::setprecision(2) << efficiency << "%\n";
+    }
+    
+    // Cache statistics
+    if (cacheEnabled_ && cacheQueries_ > 0) {
+        double hitRatio = (static_cast<double>(cacheHits_) / cacheQueries_) * 100.0;
+        oss << "  Cache Hit Ratio: " << std::fixed << std::setprecision(2) << hitRatio << "%\n";
+        oss << "  Cache Size: " << pathCache_.size() << " entries\n";
+    }
+    
+    oss << "  Current State: " << (exhausted_ ? "Exhausted" : "Active");
+    return oss.str();
+}
+
+void LazyQueryGenerator::enableCache(bool enable) {
+    cacheEnabled_ = enable;
+    if (!enable) {
+        clearCache();
+    }
+}
+
+void LazyQueryGenerator::clearCache() {
+    pathCache_.clear();
+    cacheHits_ = 0;
+    cacheQueries_ = 0;
+    lastCacheCleanup_ = std::chrono::steady_clock::now();
+}
+
+size_t LazyQueryGenerator::getCacheSize() const {
+    return pathCache_.size();
+}
+
+double LazyQueryGenerator::getCacheHitRatio() const {
+    if (cacheQueries_ == 0) return 0.0;
+    return (static_cast<double>(cacheHits_) / cacheQueries_) * 100.0;
+}
+
+std::string LazyQueryGenerator::generateCacheKey(const std::string& path, const std::string& expression) const {
+    // Create a more specific cache key that includes both path pattern and expression
+    // This allows caching of intermediate results that can be reused
+    return expression + "#" + path;
+}
+
+bool LazyQueryGenerator::getCachedResults(const std::string& cacheKey, std::vector<JsonValue>& results) const {
+    if (!cacheEnabled_) return false;
+    
+    cacheQueries_++;
+    auto it = pathCache_.find(cacheKey);
+    if (it != pathCache_.end()) {
+        results = it->second;
+        cacheHits_++;
         return true;
     }
     return false;
 }
 
-bool LazyQueryGenerator::processWildcard(Frame& frame) {
-    if (frame.childIndex == 0) {
-        if (frame.value->isObject()) {
-            const auto* obj = frame.value->getObject();
-            if (!obj || obj->empty()) {
-                return false;
-            }
-            frame.arraySize = obj->size();
-        }
-        else if (frame.value->isArray()) {
-            const auto* arr = frame.value->getArray();
-            if (!arr || arr->empty()) {
-                return false;
-            }
-            frame.arraySize = arr->size();
-        }
-        else {
-            return false;
-        }
+void LazyQueryGenerator::storeCachedResults(const std::string& cacheKey, const std::vector<JsonValue>& results) const {
+    if (!cacheEnabled_) return;
+    
+    // Clean up cache periodically
+    auto now = std::chrono::steady_clock::now();
+    if (now - lastCacheCleanup_ > CACHE_CLEANUP_INTERVAL) {
+        cleanupCache();
+        lastCacheCleanup_ = now;
     }
-    if (frame.value->isObject()) {
-        const auto* obj = frame.value->getObject();
-        if (obj && frame.childIndex < frame.arraySize) {
-            auto it = obj->begin();
-            std::advance(it, frame.childIndex);
-            std::string childPath;
-            childPath.reserve(frame.path.size() + it->first.size() + 1);
-            childPath = frame.path + "." + it->first;
-            Frame newFrame(&it->second, std::move(childPath), frame.nodeIndex + 1);
-            frame.childIndex++;
-            if (frame.childIndex >= frame.arraySize) {
-                stack_.pop();
-            }
-            stack_.push(std::move(newFrame));
-            return true;
-        }
+    
+    // Don't exceed maximum cache size
+    if (pathCache_.size() >= MAX_CACHE_SIZE) {
+        // Remove random entry to make space
+        auto it = pathCache_.begin();
+        std::advance(it, std::rand() % pathCache_.size());
+        pathCache_.erase(it);
     }
-    else if (frame.value->isArray()) {
-        const auto* arr = frame.value->getArray();
-        if (arr && frame.childIndex < frame.arraySize) {
-            std::string childPath;
-            childPath.reserve(frame.path.size() + 12);
-            childPath = frame.path + "[" + std::to_string(frame.childIndex) + "]";
-            Frame newFrame(&(*arr)[frame.childIndex], std::move(childPath), frame.nodeIndex + 1);
-            frame.childIndex++;
-            if (frame.childIndex >= frame.arraySize) {
-                stack_.pop();
-            }
-            stack_.push(std::move(newFrame));
-            return true;
-        }
-    }
-    return false;
+    
+    pathCache_[cacheKey] = results;
 }
 
-bool LazyQueryGenerator::processRecursive(Frame& frame, const std::string& property) {
-    switch (frame.recursiveState) {
-        case Frame::RecursiveState::None:
-            frame.recursiveState = Frame::RecursiveState::SearchingSelf;
-            frame.recursiveProperty = property;
-        case Frame::RecursiveState::SearchingSelf: {
-            bool foundMatch = false;
-            if (!property.empty() && frame.value->isObject()) {
-                const auto* obj = frame.value->getObject();
-                if (obj) {
-                    auto it = obj->find(property);
-                    if (it != obj->end()) {
-                        Frame resultFrame(&it->second, frame.path + "." + property, frame.nodeIndex + 1);
-                        stack_.push(resultFrame);
-                        foundMatch = true;
-                    }
-                }
-            }
-            frame.recursiveState = Frame::RecursiveState::SearchingChildren;
-            if (foundMatch) {
-                return true;
-            }
+void LazyQueryGenerator::cleanupCache() const {
+    // Simple cleanup: remove half of the cache entries randomly
+    if (pathCache_.size() > MAX_CACHE_SIZE / 2) {
+        std::vector<std::string> keysToRemove;
+        keysToRemove.reserve(pathCache_.size() / 2);
+        
+        auto it = pathCache_.begin();
+        for (size_t i = 0; i < pathCache_.size() / 2 && it != pathCache_.end(); ++i, ++it) {
+            keysToRemove.push_back(it->first);
         }
-        case Frame::RecursiveState::SearchingChildren:
-            if (frame.children.empty() && frame.childIndex == 0) {
-                if (frame.value->isObject()) {
-                    const auto* obj = frame.value->getObject();
-                    if (obj) {
-                        for (const auto& [key, child] : *obj) {
-                            frame.children.emplace_back(key, &child);
-                        }
-                    }
-                }
-                else if (frame.value->isArray()) {
-                    const auto* arr = frame.value->getArray();
-                    if (arr) {
-                        for (size_t i = 0; i < arr->size(); ++i) {
-                            frame.children.emplace_back("[" + std::to_string(i) + "]", &(*arr)[i]);
-                        }
-                    }
-                }
-            }
-            if (frame.childIndex < frame.children.size()) {
-                const auto& [childPath, childValue] = frame.children[frame.childIndex];
-                Frame recursiveFrame(childValue, frame.path + (childPath[0] == '[' ? childPath : "." + childPath), frame.nodeIndex);
-                recursiveFrame.recursiveState = Frame::RecursiveState::SearchingSelf;
-                recursiveFrame.recursiveProperty = frame.recursiveProperty;
-                stack_.push(recursiveFrame);
-                frame.childIndex++;
-                return true;
-            } else {
-                return false;
-            }
-    }
-    return false;
-}
-
-void LazyQueryGenerator::expandFrameChildren(const Frame& frame) {
-    if (frame.value->isObject()) {
-        const auto* obj = frame.value->getObject();
-        if (obj) {
-            auto it = obj->end();
-            while (it != obj->begin()) {
-                --it;
-                std::string childPath = frame.path + "." + it->first;
-                stack_.emplace(&it->second, childPath, 0);
-            }
-        }
-    }
-    else if (frame.value->isArray()) {
-        const auto* arr = frame.value->getArray();
-        if (arr) {
-            for (int i = static_cast<int>(arr->size()) - 1; i >= 0; --i) {
-                std::string childPath = frame.path + "[" + std::to_string(i) + "]";
-                stack_.emplace(&(*arr)[i], childPath, 0);
-            }
+        
+        for (const auto& key : keysToRemove) {
+            pathCache_.erase(key);
         }
     }
 }

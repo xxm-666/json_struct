@@ -10,11 +10,11 @@
 ### 🎉 重大新功能
 
 - ✅ **增强型懒查询生成器** - 完整实现并测试通过
-  - 全新的 `EnhancedLazyQueryGenerator` 类，支持完整的JSONPath语法
+  - 全新的 `LazyQueryGenerator` 类，支持完整的JSONPath语法
   - 智能缓存系统：路径级别缓存，LRU式管理，自动清理
   - 性能监控：帧数统计、结果计数、效率比追踪、缓存命中率
   - 内存优化：延迟求值、分帧处理、栈式状态管理
-  - 工厂模式：`EnhancedQueryFactory` 避免循环依赖
+  - 工厂模式：`QueryFactory` 避免循环依赖
   - 支持所有高级JSONPath功能：过滤器、切片、递归下降、Union操作
 
 - ✅ **JSONPath语法完整支持**
@@ -69,7 +69,7 @@
 ### 🔧 架构改进
 
 - ✅ **工厂模式实现**
-  - `EnhancedQueryFactory` 类避免循环依赖
+  - `QueryFactory` 类避免循环依赖
   - 支持表达式和过滤函数两种创建方式
   - 清晰的接口分离和模块化设计
 

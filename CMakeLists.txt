@@ -84,8 +84,8 @@ set(CORE_SOURCES
     src/json_engine/json_filter.cpp
     src/json_engine/json_patch.cpp
     src/json_engine/lazy_query_generator.cpp
-    src/json_engine/enhanced_lazy_query_generator.cpp
-    src/json_engine/enhanced_query_factory.cpp
+    src/json_engine/lazy_query_generator.cpp
+    src/json_engine/query_factory.cpp
     src/version.cpp
     src/json_engine/json_pipeline.cpp
 )
@@ -107,8 +107,8 @@ set(CORE_HEADERS
     src/json_engine/json_filter.h
     src/json_engine/json_pipeline.h
     src/json_engine/lazy_query_generator.h
-    src/json_engine/enhanced_lazy_query_generator.h
-    src/json_engine/enhanced_query_factory.h
+    src/json_engine/lazy_query_generator.h
+    src/json_engine/query_factory.h
 )
 
 # 可选的Qt支持
@@ -203,8 +203,9 @@ install(FILES src/json_engine/json_value.h
              src/json_engine/json_filter.h
              src/json_engine/json_pipeline.h
              src/json_engine/lazy_query_generator.h
-             src/json_engine/enhanced_lazy_query_generator.h
+             src/json_engine/lazy_query_generator.h
              src/json_engine/json_patch.h
+             src/json_engine/query_factory.h
     DESTINATION include/jsonstruct/json_engine
 )
 

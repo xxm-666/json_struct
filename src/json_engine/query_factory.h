@@ -11,15 +11,15 @@ namespace JsonStruct {
  * These functions provide a way to create enhanced query generators
  * without circular dependencies in the class hierarchy.
  */
-class EnhancedQueryFactory {
+class QueryFactory {
 public:
     /**
-     * @brief Create enhanced query generator with JSONPath expression
+     * @brief Create query generator with JSONPath expression
      * @param filter The JsonFilter instance to use
      * @param jsonValue The JSON value to query
      * @param expression JSONPath expression with full feature support
      * @param maxResults Maximum number of results for optimization
-     * @return Enhanced lazy query generator
+     * @return Lazy query generator
      */
     static LazyQueryGenerator createGenerator(
         const JsonFilter& filter,
@@ -29,11 +29,11 @@ public:
     );
 
     /**
-     * @brief Create enhanced query generator with filter function
+     * @brief Create query generator with filter function
      * @param filter The JsonFilter instance to use
      * @param jsonValue The JSON value to query
      * @param filterFunc Custom filter function
-     * @return Enhanced lazy query generator
+     * @return Lazy query generator
      */
     static LazyQueryGenerator createGenerator(
         const JsonFilter& filter,

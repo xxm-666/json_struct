@@ -1,6 +1,6 @@
 #include "../test_framework/test_framework.h"
-#include "../src/json_engine/enhanced_lazy_query_generator.h"
-#include "../src/json_engine/enhanced_query_factory.h"
+#include "../src/json_engine/lazy_query_generator.h"
+#include "../src/json_engine/query_factory.h"
 #include "../src/json_engine/json_filter.h"
 #include "../src/json_engine/json_value.h"
 #include <chrono>
@@ -67,7 +67,7 @@ TEST(EnhancedCachePerformanceBasic) {
     std::string query = "$.stores[*].departments[*].products[?(@.category == 'electronics')]";
     
     // Test without cache
-    auto gen1 = EnhancedQueryFactory::createGenerator(filter, data, query);
+    auto gen1 = QueryFactory::createGenerator(filter, data, query);
     gen1.enableCache(false);
     
     std::vector<JsonValue> results1;
@@ -78,7 +78,7 @@ TEST(EnhancedCachePerformanceBasic) {
     });
     
     // Test with cache enabled - same query multiple times
-    auto gen2 = EnhancedQueryFactory::createGenerator(filter, data, query);
+    auto gen2 = QueryFactory::createGenerator(filter, data, query);
     gen2.enableCache(true);
     
     // Run the same query pattern multiple times to build cache
@@ -108,13 +108,13 @@ TEST(EnhancedCacheMemoryManagement) {
     JsonFilter filter = JsonFilter::createDefault();
     JsonValue data = createLargeTestDataset();
     
-    auto gen = EnhancedQueryFactory::createGenerator(filter, data, "$.stores[*].name");
+    auto gen = QueryFactory::createGenerator(filter, data, "$.stores[*].name");
     
     // Fill up the cache
     for (int i = 0; i < 150; ++i) {  // More than MAX_CACHE_SIZE (100)
         std::string query = "$.stores[" + std::to_string(i % 10) + "].departments[*].products[" + 
                            std::to_string(i % 50) + "].name";
-        auto tempGen = EnhancedQueryFactory::createGenerator(filter, data, query);
+        auto tempGen = QueryFactory::createGenerator(filter, data, query);
         if (tempGen.hasNext()) {
             tempGen.next();
         }
@@ -142,7 +142,7 @@ TEST(EnhancedCacheComplexQueries) {
     };
     
     for (const auto& query : queries) {
-        auto gen = EnhancedQueryFactory::createGenerator(filter, data, query);
+        auto gen = QueryFactory::createGenerator(filter, data, query);
         
         // First run
         std::vector<JsonValue> results1;
@@ -179,7 +179,7 @@ TEST(EnhancedCacheRepeatedPatterns) {
     JsonValue data = createLargeTestDataset();
     
     // Test cache effectiveness with repeated similar queries
-    auto gen = EnhancedQueryFactory::createGenerator(filter, data, "$.stores[0].departments[*].products[*].name");
+    auto gen = QueryFactory::createGenerator(filter, data, "$.stores[0].departments[*].products[*].name");
     
     // Measure initial performance
     auto start = std::chrono::high_resolution_clock::now();

@@ -1,12 +1,5 @@
-/*
- * test_enhanced_lazy_comprehensive_v2.cpp
- * 
- * Comprehensive test suite for EnhancedLazyQueryGenerator
- * Including complex scenarios, edge cases, and boundary testing
- */
-
 #include "../test_framework/test_framework.h"
-#include "../src/json_engine/enhanced_query_factory.h"
+#include "../src/json_engine/query_factory.h"
 #include "../src/json_engine/json_filter.h"
 #include "../src/json_engine/json_value.h"
 #include <chrono>

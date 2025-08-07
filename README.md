@@ -85,7 +85,7 @@ auto spaced = data.selectAll("$['user name']");       // 带空格属性名
 
 // 增强型懒查询（大数据高效处理）
 JsonFilter filter = JsonFilter::createDefault();
-auto generator = EnhancedQueryFactory::createGenerator(filter, data, 
+auto generator = QueryFactory::createGenerator(filter, data, 
     "$.companies[*].employees[?(@.salary > 50000)]");
 
 while (generator.hasNext()) {
@@ -100,7 +100,7 @@ generator.enableCache(true);
 
 ### ⚡ 增强型懒查询生成器
 
-全新的 `EnhancedLazyQueryGenerator` 提供了强大的懒加载查询能力：
+全新的 `LazyQueryGenerator` 提供了强大的懒加载查询能力：
 
 - **完整JSONPath支持**: 支持所有标准JSONPath语法
 - **智能缓存系统**: 自动缓存查询结果，提升重复查询性能
@@ -110,7 +110,7 @@ generator.enableCache(true);
 
 ```cpp
 // 创建增强型查询生成器
-auto gen = EnhancedQueryFactory::createGenerator(filter, data,
+auto gen = QueryFactory::createGenerator(filter, data,
     "$..products[?(@.price > 100 && @.category == 'electronics')]");
 
 // 启用缓存
@@ -172,7 +172,7 @@ auto basicGen = data.createLazyQuery("$.users[*].name");
 
 // 复杂查询推荐使用增强型生成器
 JsonFilter filter = JsonFilter::createDefault();
-auto enhancedGen = EnhancedQueryFactory::createGenerator(filter, data,
+auto enhancedGen = QueryFactory::createGenerator(filter, data,
     "$.companies[*].departments[?(@.budget > 100000)].employees[?(@.active)]");
 
 enhancedGen.enableCache(true);  // 启用智能缓存
@@ -301,7 +301,7 @@ ctest --output-on-failure
 
 #### 智能缓存系统
 ```cpp
-auto gen = EnhancedQueryFactory::createGenerator(filter, data, query);
+auto gen = QueryFactory::createGenerator(filter, data, query);
 gen.enableCache(true);
 
 // 首次查询建立缓存
@@ -331,15 +331,15 @@ if (gen.hasNext()) {
 #### 复杂查询示例
 ```cpp
 // 多级过滤和切片组合
-auto gen1 = EnhancedQueryFactory::createGenerator(filter, data,
+auto gen1 = QueryFactory::createGenerator(filter, data,
     "$.companies[?(@.founded > 2000)].departments[0:3].employees[?(@.salary > 50000)]");
 
 // 递归搜索与过滤器
-auto gen2 = EnhancedQueryFactory::createGenerator(filter, data,
+auto gen2 = QueryFactory::createGenerator(filter, data,
     "$..products[?(@.price > 100 && @.category == 'electronics')]");
 
 // Union操作
-auto gen3 = EnhancedQueryFactory::createGenerator(filter, data,
+auto gen3 = QueryFactory::createGenerator(filter, data,
     "$.user.name,$.user.email,$.user.phone");
 ```
 
