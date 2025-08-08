@@ -30,7 +30,8 @@ std::vector<QueryResult> JsonFilter::query(const JsonValue& jsonValue, const std
         for (size_t i = 0; i < result.values.size(); ++i) {
             size_t depth = std::count(result.paths[i].begin(), result.paths[i].end(), '.') + 
                           std::count(result.paths[i].begin(), result.paths[i].end(), '[');
-            queryResults.emplace_back(&result.values[i].get(), result.paths[i], depth);
+            // Create a copy of the JsonValue to avoid dangling pointers
+            queryResults.emplace_back(new JsonValue(result.values[i].get()), result.paths[i], depth);
         }
         
         return queryResults;
@@ -48,9 +49,8 @@ std::vector<QueryResult> JsonFilter::queryFast(const JsonValue& jsonValue, const
     // Check for simple array traversal patterns like "$.store.book[*].title"
     if (expression.find("[*]") != std::string::npos && expression.find("..") == std::string::npos) {
         // Parse the path components manually for simple patterns
-        auto results = optimizedArrayTraversal(jsonValue, expression, maxResults);
-        if (!results.empty()) {
-            return results;
+        if (auto results = optimizedArrayTraversal(jsonValue, expression, maxResults)) {
+            return *results;
         }
     }
     
@@ -66,7 +66,8 @@ std::vector<QueryResult> JsonFilter::queryFast(const JsonValue& jsonValue, const
         for (size_t i = 0; i < actualLimit; ++i) {
             size_t depth = std::count(result.paths[i].begin(), result.paths[i].end(), '.') + 
                           std::count(result.paths[i].begin(), result.paths[i].end(), '[');
-            queryResults.emplace_back(&result.values[i].get(), result.paths[i], depth);
+            // Create a copy of the JsonValue to avoid dangling pointers
+            queryResults.emplace_back(new JsonValue(result.values[i].get()), result.paths[i], depth);
         }
         
         return queryResults;
@@ -191,14 +192,14 @@ bool JsonFilter::matchesFilter(const JsonValue& value, const std::string& path, 
     return filter(value, path);
 }
 
-std::vector<QueryResult> JsonFilter::optimizedArrayTraversal(const JsonValue& jsonValue, const std::string& expression, size_t maxResults) const {
+std::optional<std::vector<QueryResult>> JsonFilter::optimizedArrayTraversal(const JsonValue& jsonValue, const std::string& expression, size_t maxResults) const {
     std::vector<QueryResult> results;
     
     // Parse simple patterns like "$.store.book[*].title"
     // Split by [*] to get prefix and suffix
     auto wildcardPos = expression.find("[*]");
     if (wildcardPos == std::string::npos) {
-        return results; // Not a simple wildcard pattern
+        return std::nullopt; // Not a simple wildcard pattern
     }
     
     std::string prefixPath = expression.substr(0, wildcardPos);
@@ -227,11 +228,11 @@ std::vector<QueryResult> JsonFilter::optimizedArrayTraversal(const JsonValue& js
                         currentNode = &it->second;
                         currentPath = buildPath(currentPath, component);
                     } else {
-                        return results; // Path not found
+                        return std::nullopt; // Path not found
                     }
                 }
             } else {
-                return results; // Not an object, can't navigate
+                return std::nullopt; // Not an object, can't navigate
             }
             
             pos = (nextDot == std::string::npos) ? pathToParse.length() : nextDot + 1;
@@ -240,12 +241,12 @@ std::vector<QueryResult> JsonFilter::optimizedArrayTraversal(const JsonValue& js
     
     // Current node should be an array
     if (!currentNode->isArray()) {
-        return results;
+        return std::nullopt;
     }
     
     const auto* arr = currentNode->getArray();
     if (!arr) {
-        return results;
+        return std::nullopt;
     }
     
     // Iterate through array elements with early termination

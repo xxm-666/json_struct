@@ -19,11 +19,16 @@ void JsonQueryGenerator::reset() {
     resultsLoaded_ = false;
     cachedResults_.clear();
     
-    // 创建真正的懒加载生成器
-    static JsonFilter defaultFilter = JsonFilter::createDefault();
-    lazyGen_ = std::make_unique<LazyQueryGenerator>(
-        defaultFilter.queryGenerator(*root_, expression_, options_.maxResults)
-    );
+    try {
+        // 创建真正的懒加载生成器
+        static JsonFilter defaultFilter = JsonFilter::createDefault();
+        lazyGen_ = std::make_unique<LazyQueryGenerator>(
+            defaultFilter.queryGenerator(*root_, expression_, options_.maxResults)
+        );
+    } catch (const std::exception&) {
+        // If lazy generator creation fails (e.g., invalid expression), disable the generator
+        lazyGen_ = nullptr;
+    }
 }
 
 void JsonQueryGenerator::terminate() {

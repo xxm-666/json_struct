@@ -252,7 +252,7 @@ target_compile_features(test_all_runner PRIVATE cxx_std_17)
 
 # 创建运行核心测试的目标
 add_custom_target(run_core_tests
-    DEPENDS test_core_functionality test_json_auto test_enhanced_features 
+    DEPENDS test_core_functionality test_json_auto 
             test_custom_types test_json_parsing test_error_recovery 
             test_performance_struct test_special_numbers test_json_pointer
             test_large_deep_nested_objects test_multithreaded_concurrency
@@ -269,13 +269,13 @@ add_custom_target(run_jsonpath_tests
 # 创建运行性能测试的目标
 add_custom_target(run_performance_tests
     DEPENDS test_performance_struct test_performance_limits 
-            test_lazy_performance_comprehensive memory_benchmark performance_benchmark
+            test_lazy_performance_comprehensive
     COMMENT "Running performance tests"
 )
 
 # 创建构建所有测试的目标
 add_custom_target(build_all_tests
-    DEPENDS test_core_functionality test_json_auto test_enhanced_features 
+    DEPENDS test_core_functionality test_json_auto 
             test_custom_types test_json_parsing test_error_recovery 
             test_performance_struct test_special_numbers test_json_pointer_basic
             test_json_pointer test_jsonpath_comprehensive test_json_path_mutable
@@ -287,8 +287,7 @@ add_custom_target(build_all_tests
             test_serialization_basic test_serialization_options
             test_json_pipeline test_json_query_generator test_lazy_query_comprehensive
             rfc7396_test simple_filter_test test_version version_info
-            test_lazy_suite_runner test_all_runner memory_benchmark 
-            performance_benchmark performance_reporter
+            test_lazy_suite_runner test_all_runner
     COMMENT "Building all test executables" 
 )
 

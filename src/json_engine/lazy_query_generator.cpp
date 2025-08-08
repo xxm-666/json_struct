@@ -142,8 +142,8 @@ void LazyQueryGenerator::parseExpression(const std::string& expression) {
         context_.nodes = jsonpath::JsonPathParser::parse(tokens);
         
     } catch (const std::exception& e) {
-        // If parsing fails, create an empty node list which will result in no matches
-        context_.nodes.clear();
+        // If parsing fails, re-throw as a specific exception
+        throw std::runtime_error("Invalid JSONPath expression: " + std::string(e.what()));
     }
 }
 

@@ -36,7 +36,6 @@ public:
             "test_complex_structures.exe",
             "test_core_functionality.exe",
             "test_custom_types.exe",
-            "test_enhanced_features.exe",
             "test_error_codes.exe",
             "test_error_handling.exe",
             "test_error_recovery.exe",

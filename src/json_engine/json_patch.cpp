@@ -162,8 +162,9 @@ JsonStruct::JsonValue ApplyPatch(JsonStruct::JsonValue &target, const std::strin
             if (parent && parent->isObject()) {
                 parent->erase(key);
             } else if (parent && parent->isArray()) {
-                try {
-                    size_t index = std::stoul(key);
+                size_t index;
+                auto [ptr, ec] = std::from_chars(key.data(), key.data() + key.size(), index);
+                if (ec == std::errc()) {
                     auto arrayOpt = parent->toArray();
                     if (arrayOpt) {
                         auto& array = arrayOpt->get();
@@ -171,7 +172,7 @@ JsonStruct::JsonValue ApplyPatch(JsonStruct::JsonValue &target, const std::strin
                             array.erase(array.begin() + index);
                         }
                     }
-                } catch (const std::exception&) {
+                } else {
                     throw std::runtime_error("Invalid array index in path: " + path);
                 }
             } else {

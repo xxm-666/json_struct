@@ -219,7 +219,7 @@ public:
      * - The function may bypass some general JSONPath features for speed, so ensure the expression is compatible.
      * - Automatically selects the optimal strategy internally, but caller should ensure input fits the above pattern.
      */
-    std::vector<QueryResult> optimizedArrayTraversal(const JsonValue& jsonValue, const std::string& expression, size_t maxResults) const;
+    std::optional<std::vector<QueryResult>> optimizedArrayTraversal(const JsonValue& jsonValue, const std::string& expression, size_t maxResults) const;
 
     /**
      * @brief Modern lazy query generator (recommended).
