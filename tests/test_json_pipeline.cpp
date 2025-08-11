@@ -153,6 +153,90 @@ TEST(JsonPipelineBranchAlwaysFalse) {
     ASSERT_EQ(-100, pipelineResult.toDouble());
 }
 
+TEST(JsonPipelineMin) {
+    JsonValue input(JsonValue::ArrayType({
+        5, 3, 8, 1.5, 4
+    }));
+
+    auto pipelineResult = JsonPipeline()
+        .aggregate(Aggregates::min)
+        .execute(input);
+
+    ASSERT_EQ(1.5, pipelineResult.toDouble());
+}
+
+std::ostream& operator<<(std::ostream& os, const JsonValue::Type& value) {
+    switch (value) {
+        case JsonValue::Type::Null: os << "Null"; break;
+        case JsonValue::Type::Bool: os << "Bool"; break;
+        case JsonValue::Type::Number: os << "Number"; break;
+        case JsonValue::Type::String: os << "String"; break;
+        case JsonValue::Type::Array: os << "Array"; break;
+        case JsonValue::Type::Object: os << "Object"; break;
+    }
+    return os;
+}
+
+TEST(JsonPipelineToImmutable) {
+    // Test with a simple object
+    JsonValue inputObject(JsonValue::ObjectType({
+        {"key1", JsonValue("value1")},
+        {"key2", JsonValue(42)},
+        {"key3", JsonValue(true)}
+    }));
+    
+    JsonValue immutableObject = Transforms::toImmutable(inputObject);
+    ASSERT_EQ(inputObject.type(), immutableObject.type());
+    ASSERT_EQ(inputObject, immutableObject);
+
+    immutableObject["key1"] = JsonValue("new_value");
+    ASSERT_EQ(inputObject["key1"].toString(), "value1"); // Original should remain unchanged
+    
+    // Test with a simple array
+    JsonValue inputArray(JsonValue::ArrayType({
+        JsonValue("item1"),
+        JsonValue(100),
+        JsonValue(false)
+    }));
+    
+    JsonValue immutableArray = Transforms::toImmutable(inputArray);
+    ASSERT_EQ(inputArray.type(), immutableArray.type());
+    ASSERT_EQ(inputArray, immutableArray);
+    
+    // Test with nested structures
+    JsonValue nestedInput(JsonValue::ObjectType({
+        {"array", JsonValue(JsonValue::ArrayType({
+            JsonValue("nested_item1"),
+            JsonValue(JsonValue::ObjectType({
+                {"nested_key", JsonValue("nested_value")}
+            }))
+        }))},
+        {"object", JsonValue(JsonValue::ObjectType({
+            {"inner_key", JsonValue(3.14)}
+        }))}
+    }));
+    
+    JsonValue immutableNested = Transforms::toImmutable(nestedInput);
+    ASSERT_EQ(nestedInput.type(), immutableNested.type());
+    ASSERT_EQ(nestedInput, immutableNested);
+    
+    // Test with mixed types
+    JsonValue mixedInput(JsonValue::ArrayType({
+        JsonValue("string"),
+        JsonValue(123),
+        JsonValue(true),
+        JsonValue(nullptr),
+        JsonValue(JsonValue::ArrayType({
+            JsonValue("inner_string"),
+            JsonValue(456)
+        }))
+    }));
+    
+    JsonValue immutableMixed = Transforms::toImmutable(mixedInput);
+    ASSERT_EQ(mixedInput.type(), immutableMixed.type());
+    ASSERT_EQ(mixedInput, immutableMixed);
+}
+
 // Main function to execute tests in this file
 int main() {
     return RUN_ALL_TESTS();

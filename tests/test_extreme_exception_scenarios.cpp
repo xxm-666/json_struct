@@ -34,8 +34,8 @@ TEST(ExtremeException_InvalidJSON) {
         "{\"key\": 1e999}" ,  // 过大的指数
         "{\"key\": NaN}" ,  // NaN值（除非特别支持）
         "{\"key\": Infinity}" ,  // Infinity值（除非特别支持）
-        "{\"key\": \uXXXX}" ,  // 无效的Unicode转义
-        "{\"key\": \"unclosed string}" ,  // 未闭合的字符串
+        R"({"key": \uXXXX})" ,  // 无效的Unicode转义
+        R"({"key": "unclosed string)" ,  // 未闭合的字符串
     };
     
     int parseFailures = 0;

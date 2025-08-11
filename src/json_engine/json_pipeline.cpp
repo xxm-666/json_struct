@@ -21,7 +21,11 @@ JsonValue toString(const JsonValue& value) {
         case JsonValue::Type::Bool:
             return JsonValue(value.toBool() ? "true" : "false");
         case JsonValue::Type::Number:
-            return JsonValue(value.toDouble());
+        {
+            std::stringstream ss;
+            ss << value.toDouble();
+            return JsonValue(ss.str());
+        }
         case JsonValue::Type::String:
             return JsonValue(value.toString());
         case JsonValue::Type::Array:
@@ -239,20 +243,27 @@ JsonValue max(const std::vector<JsonValue>& values) {
 JsonValue min(const std::vector<JsonValue>& values) {
     if (values.empty()) return JsonValue();
 
-    JsonNumber minValue(0);
-    bool found = false;
+    JsonNumber minValue = JsonNumber::makeInfinity();
 
     for (const auto& val : values) {
         if (val.type() == JsonValue::Type::Number) {
             JsonNumber num(val.toDouble());
-            if (!found || num < minValue) {
+            if (num < minValue) {
                 minValue = num;
-                found = true;
+            }
+        } else if (val.type() == JsonValue::Type::String) {
+            try {
+                JsonNumber num(std::stod(val.toString()));
+                if (num < minValue) {
+                    minValue = num;
+                }
+            } catch (...) {
+                // Ignore invalid numbers
             }
         }
     }
 
-    return found ? JsonValue(minValue) : JsonValue();
+    return minValue.isInfinity() ? JsonValue() : JsonValue(minValue);
 }
 
 JsonValue count(const std::vector<JsonValue>& values) {
@@ -280,7 +291,4 @@ JsonValue unique(const std::vector<JsonValue>& values) {
 JsonPipeline::TransformFunction JsonPipeline::query(const std::string& jsonPath) {
     return Transforms::query(jsonPath);
 }
-
-// The fix for AggregateStep::execute is already completed in the header file
-
 } // namespace JsonStruct

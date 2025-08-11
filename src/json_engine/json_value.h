@@ -52,23 +52,52 @@ public:
 
     // Parse options
     struct ParseOptions{
-        size_t maxDepth = 512;          // Maximum nesting depth
-        bool allowComments = false;     // Allow comments (JSON5 style)
-        bool allowTrailingCommas = false; // Allow trailing commas
-        bool strictMode = true;         // Strict mode
-        bool validateUtf8 = false;       // Validate UTF-8 encoding
-        bool allowSpecialNumbers = false; // Allow NaN/Infinity and other special numbers
-        bool allowRecovery = false;     // Allow error recovery (lenient parsing)
+        size_t maxDepth;          // Maximum nesting depth
+        bool allowComments;     // Allow comments (JSON5 style)
+        bool allowTrailingCommas; // Allow trailing commas
+        bool strictMode;         // Strict mode
+        bool validateUtf8;       // Validate UTF-8 encoding
+        bool allowSpecialNumbers; // Allow NaN/Infinity and other special numbers
+        bool allowRecovery;     // Allow error recovery (lenient parsing)
+
+        ParseOptions(size_t maxDepth = 512,
+                     bool allowComments = false,
+                     bool allowTrailingCommas = false,
+                     bool strictMode = true,
+                     bool validateUtf8 = false,
+                     bool allowSpecialNumbers = false,
+                     bool allowRecovery = false)
+            : maxDepth(maxDepth),
+              allowComments(allowComments),
+              allowTrailingCommas(allowTrailingCommas),
+              strictMode(strictMode),
+              validateUtf8(validateUtf8),
+              allowSpecialNumbers(allowSpecialNumbers),
+              allowRecovery(allowRecovery) {}
     };
 
     // Serialization options
     struct SerializeOptions {
-        int indent = -1;                // Indentation level, -1 for compact mode
-        bool sortKeys = false;          // Sort object keys
-        bool escapeUnicode = false;     // Escape Unicode characters
-        bool compactArrays = false;     // Compact array formatting
-        size_t maxPrecision = 15;       // Floating point precision
-        bool allowSpecialNumbers = false; // Serialize special numbers
+        int indent;                // Indentation level, -1 for compact mode
+        bool sortKeys;          // Sort object keys
+        bool escapeUnicode;     // Escape Unicode characters
+        bool compactArrays;     // Compact array formatting
+        size_t maxPrecision;       // Floating point precision
+        bool allowSpecialNumbers; // Serialize special numbers
+
+        /// add constructor for JsonValue
+        SerializeOptions(int indent = -1, 
+                         bool sortKeys = false,
+                         bool escapeUnicode = false,
+                         bool compactArrays = false,
+                         size_t maxPrecision = 15,
+                         bool allowSpecialNumbers = false)
+            : indent(indent),
+              sortKeys(sortKeys),
+              escapeUnicode(escapeUnicode),
+              compactArrays(compactArrays),
+              maxPrecision(maxPrecision),
+              allowSpecialNumbers(allowSpecialNumbers) {}
     };
 
 private:
