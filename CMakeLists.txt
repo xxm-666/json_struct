@@ -112,7 +112,9 @@ set(CORE_HEADERS
 )
 
 # 可选的Qt支持
-option(ENABLE_QT_SUPPORT "Enable Qt support" OFF)
+if(NOT DEFINED ENABLE_QT_SUPPORT)
+    set(ENABLE_QT_SUPPORT OFF CACHE BOOL "Enable Qt support")
+endif()
 
 if(ENABLE_QT_SUPPORT)
     find_package(Qt6 COMPONENTS Core Widgets)
@@ -151,8 +153,12 @@ endif()
 target_compile_features(json_struct PRIVATE cxx_std_17)
 
 # 选项控制是否编译测试和示例
-option(BUILD_TESTS "Build test targets" ON)
-option(BUILD_EXAMPLES "Build example targets" OFF)
+if(NOT DEFINED BUILD_TESTS)
+    set(BUILD_TESTS ON CACHE BOOL "Build test targets")
+endif()
+if(NOT DEFINED BUILD_EXAMPLES)
+    set(BUILD_EXAMPLES OFF CACHE BOOL "Build example targets")
+endif()
 
 if(BUILD_TESTS)
     include(tests/CMakeLists.txt)

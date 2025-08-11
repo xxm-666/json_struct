@@ -12,8 +12,22 @@
 #include <map>
 #include <set>
 #include <iomanip>
+#ifndef _WIN32
+#include <unistd.h>  // for isatty
+#endif
 
 namespace TestFramework {
+
+// Utility function to check if terminal supports color
+inline bool supportsColor() {
+#ifdef _WIN32
+    // On Windows, check if we're running in a modern console
+    return true;  // Windows 10+ cmd and PowerShell support ANSI codes
+#else
+    // On Unix-like systems, check if stdout is a terminal
+    return isatty(STDOUT_FILENO);
+#endif
+}
 
 // Forward declarations
 class TestContext;
@@ -248,7 +262,11 @@ public:
             // Check if test should run based on configuration
             if (!config_.shouldRunTest(test.getName(), test.getTags())) {
                 if (config_.verbose) {
-                    std::cout << "[FILTERED] " << test.getName() << std::endl;
+                    if (supportsColor()) {
+                        std::cout << "\033[36m[FILTERED]\033[0m " << test.getName() << std::endl;  // Cyan for filtered
+                    } else {
+                        std::cout << "[FILTERED] " << test.getName() << std::endl;
+                    }
                 }
                 continue;
             }
@@ -259,21 +277,34 @@ public:
 
             // Display test result
             if (testResult.isSuccess()) {
-                std::cout << "[PASS] " << test.getName();
+                if (supportsColor()) {
+                    std::cout << "\033[32m[PASS]\033[0m " << test.getName();  // Green for pass
+                } else {
+                    std::cout << "[PASS] " << test.getName();
+                }
                 if (config_.timing && testResult.getDuration() > 0) {
                     std::cout << " (" << std::fixed << std::setprecision(3) 
                              << testResult.getDuration() << "s)";
                 }
                 std::cout << std::endl;
             } else if (testResult.getSkipped() > 0) {
-                std::cout << "[SKIP] " << test.getName();
+                if (supportsColor()) {
+                    std::cout << "\033[33m[SKIP]\033[0m " << test.getName();  // Yellow for skip
+                } else {
+                    std::cout << "[SKIP] " << test.getName();
+                }
                 if (!testResult.getSkips().empty()) {
                     std::cout << " - " << testResult.getSkips()[0];
                 }
                 std::cout << std::endl;
             } else {
-                std::cout << "[FAIL] " << test.getName() << " (" 
-                         << testResult.getFailed() << " failures)";
+                if (supportsColor()) {
+                    std::cout << "\033[31m[FAIL]\033[0m " << test.getName() << " (" 
+                             << testResult.getFailed() << " failures)";  // Red for fail
+                } else {
+                    std::cout << "[FAIL] " << test.getName() << " (" 
+                             << testResult.getFailed() << " failures)";
+                }
                 if (config_.timing && testResult.getDuration() > 0) {
                     std::cout << " (" << std::fixed << std::setprecision(3) 
                              << testResult.getDuration() << "s)";
@@ -306,10 +337,19 @@ public:
         // Print summary
         std::cout << "\n=== Test Summary ===" << std::endl;
         std::cout << "Tests run: " << testsRun << std::endl;
-        std::cout << "Total: " << totalResult.getTotal() << std::endl;
-        std::cout << "Passed: " << totalResult.getPassed() << std::endl;
-        std::cout << "Failed: " << totalResult.getFailed() << std::endl;
-        std::cout << "Skipped: " << totalResult.getSkipped() << std::endl;
+        if (supportsColor()) {
+            std::cout << "Total: " << totalResult.getTotal() 
+                     << ", \033[32mPassed: " << totalResult.getPassed() << "\033[0m"  // Green for passed
+                     << ", \033[31mFailed: " << totalResult.getFailed() << "\033[0m"  // Red for failed
+                     << ", \033[33mSkipped: " << totalResult.getSkipped() << "\033[0m"  // Yellow for skipped
+                     << std::endl;
+        } else {
+            std::cout << "Total: " << totalResult.getTotal() 
+                     << ", Passed: " << totalResult.getPassed()
+                     << ", Failed: " << totalResult.getFailed()
+                     << ", Skipped: " << totalResult.getSkipped()
+                     << std::endl;
+        }
         
         if (config_.timing) {
             std::cout << "Total time: " << std::fixed << std::setprecision(3) 
@@ -317,17 +357,31 @@ public:
         }
         
         if (totalResult.isSuccess()) {
-            std::cout << "ALL TESTS PASSED!" << std::endl;
+            if (supportsColor()) {
+                std::cout << "\033[32mALL TESTS PASSED!\033[0m" << std::endl;  // Green for success
+            } else {
+                std::cout << "ALL TESTS PASSED!" << std::endl;
+            }
             return 0;
         } else {
-            std::cout << "SOME TESTS FAILED!" << std::endl;
+            if (supportsColor()) {
+                std::cout << "\033[31mSOME TESTS FAILED!\033[0m" << std::endl;  // Red for failure
+            } else {
+                std::cout << "SOME TESTS FAILED!" << std::endl;
+            }
             
             if (!config_.verbose) {
-                std::cout << "\n=== Failure Details ===" << std::endl;
+            std::cout << "\n=== Failure Details ===" << std::endl;
+            if (supportsColor()) {
+                for (const auto& failure : totalResult.getFailures()) {
+                    std::cout << "\033[31m- " << failure << "\033[0m" << std::endl;  // Red for failures
+                }
+            } else {
                 for (const auto& failure : totalResult.getFailures()) {
                     std::cout << "- " << failure << std::endl;
                 }
             }
+        }
             return 1;
         }
     }
