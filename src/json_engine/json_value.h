@@ -164,7 +164,7 @@ public:
     JsonValue(std::nullptr_t) : value_(std::monostate{}) {}
     JsonValue(bool b) : value_(b) {}
     JsonValue(int i) : value_(JsonNumber(static_cast<int64_t>(i))) {}
-    JsonValue(long long ll) : value_(JsonNumber(ll)) {}  // No more precision loss
+    JsonValue(long long ll) : value_(JsonNumber(static_cast<int64_t>(ll))) {}  // No more precision loss
     JsonValue(float f) : value_(JsonNumber(static_cast<double>(f))) {}
     JsonValue(double d) : value_(JsonNumber(d)) {}
     JsonValue(const JsonNumber& num) : value_(num) {}  // Support direct construction from JsonNumber
