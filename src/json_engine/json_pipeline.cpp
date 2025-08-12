@@ -60,7 +60,7 @@ JsonValue toNumber(const JsonValue& value) {
                         double d = std::stod(str);
                         return JsonValue(d);
                     } else {
-                        int64_t i = std::stoll(str);
+                        auto i = std::stoll(str);
                         return JsonValue(i);
                     }
                 } catch (...) {
@@ -267,7 +267,7 @@ JsonValue min(const std::vector<JsonValue>& values) {
 }
 
 JsonValue count(const std::vector<JsonValue>& values) {
-    return JsonValue(static_cast<int64_t>(values.size()));
+    return JsonValue(static_cast<long long>(values.size()));
 }
 
 JsonValue unique(const std::vector<JsonValue>& values) {

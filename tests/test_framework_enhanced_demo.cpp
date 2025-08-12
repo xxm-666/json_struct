@@ -2,7 +2,7 @@
 #include <vector>
 #include <stdexcept>
 #include <iostream>
-
+#include <climits>
 // Demonstration of the enhanced test framework features
 
 TEST(Enhanced_BasicAssertions) {

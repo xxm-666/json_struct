@@ -6,8 +6,12 @@
 #include <chrono>
 #include <thread>
 #include <vector>
+#ifdef _WIN32
 #include <Windows.h>
 #include <Psapi.h>
+#else
+#include <sys/resource.h>
+#endif
 
 using namespace JsonStruct;
 
@@ -15,10 +19,16 @@ using namespace JsonStruct;
 size_t getCurrentMemoryUsage() {
     // 这里应该实现实际的内存监控
     // 简化版本返回0，实际项目中应该使用系统API
-#ifdef WIN32
+#ifdef _WIN32
     PROCESS_MEMORY_COUNTERS pmc;
     if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
         return pmc.WorkingSetSize;
+    }
+#else
+    // Linux
+    struct rusage usage;
+    if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        return usage.ru_maxrss;
     }
 #endif
     return 0;
@@ -28,24 +38,24 @@ TEST(JsonStreamParser_LargeDocuments) {
     // 测试大型文档的流式解析
     std::stringstream largeJson;
     largeJson << "{\n\"data\": [\n";
-    
+
     for (int i = 0; i < 10000; ++i) {
         if (i > 0) largeJson << ",\n";
         largeJson << "{\"id\": " << i << ", \"value\": " << (i * 1.5) << "}";
     }
     largeJson << "\n]\n}";
-    
+
     std::string jsonStr = largeJson.str();
-    
+
     // 测试流式解析不会导致内存溢出
     auto start = std::chrono::high_resolution_clock::now();
     JsonValue parsed = JsonValue::parse(jsonStr);
     auto end = std::chrono::high_resolution_clock::now();
-    
+
     ASSERT_TRUE(parsed.isObject());
     ASSERT_TRUE(parsed["data"].isArray());
     ASSERT_EQ(parsed["data"].toArray()->get().size(), 10000);
-    
+
     // 确保解析时间合理
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "Large document parsing time: " << duration.count() << "ms" << std::endl;
@@ -63,13 +73,13 @@ TEST(JsonStreamParser_DeepNesting) {
         deepJson += "}";
     }
     deepJson += "}";
-    
+
     JsonValue::ParseOptions options;
     options.maxDepth = 200; // 允许更深的嵌套
-    
+
     JsonValue parsed = JsonValue::parse(deepJson, options);
     ASSERT_TRUE(parsed.isObject());
-    
+
     // 验证可以访问深层数据
     JsonValue current = parsed;
     for (int i = 0; i < 100; ++i) {
@@ -88,19 +98,20 @@ TEST(JsonStreamParser_ErrorRecovery) {
         "invalid": [1, 2, 3, },  // 语法错误
         "valid2": "still ok"
     })";
-    
+
     JsonValue::ParseOptions recoveryOptions;
     recoveryOptions.allowRecovery = true;
     recoveryOptions.strictMode = false;
-    
+
     bool exceptionCaught = false;
     JsonValue parsed;
     try {
         parsed = JsonValue::parse(malformedJson, recoveryOptions);
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         exceptionCaught = true;
     }
-    
+
     // 根据实现，可能抛出异常或返回部分解析结果
     if (!exceptionCaught) {
         // 如果支持错误恢复，应该解析出有效部分
@@ -119,18 +130,18 @@ TEST(JsonStreamParser_LenientMode) {
         "key4": NaN,            // 特殊数值
         "key5": Infinity        // 无穷大
     })";
-    
+
     JsonValue::ParseOptions lenientOptions;
     lenientOptions.allowComments = true;
     lenientOptions.allowTrailingCommas = true;
     lenientOptions.allowSpecialNumbers = true;
     lenientOptions.strictMode = false;
-    
+
     bool success = false;
     try {
         JsonValue parsed = JsonValue::parse(lenientJson, lenientOptions);
         success = true;
-        
+
         if (success) {
             ASSERT_TRUE(parsed.isObject());
             // 验证特殊数值
@@ -141,7 +152,8 @@ TEST(JsonStreamParser_LenientMode) {
                 ASSERT_TRUE(parsed["key5"].isInfinity());
             }
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         // 如果不支持宽松模式，至少应该有明确的错误消息
         std::cout << "Lenient parsing not supported: " << e.what() << std::endl;
     }
@@ -157,10 +169,10 @@ TEST(JsonStreamParser_UTF8Handling) {
         "escaped": "\u4f60\u597d\u4e16\u754c",
         "mixed": "Hello 世界 🌍"
     })";
-    
+
     JsonValue parsed = JsonValue::parse(utf8Json);
     ASSERT_TRUE(parsed.isObject());
-    
+
     // 验证各种字符集都能正确解析
     ASSERT_EQ(parsed["english"].toString(), "Hello World");
     ASSERT_EQ(parsed["chinese"].toString(), "你好世界");
@@ -173,7 +185,7 @@ TEST(JsonStreamParser_UTF8Handling) {
 TEST(JsonStreamParser_MemoryEfficiency) {
     // 测试内存效率
     size_t memoryBefore = getCurrentMemoryUsage();
-    
+
     // 创建多个中等大小的JSON文档
     std::vector<JsonValue> documents;
     for (int doc = 0; doc < 100; ++doc) {
@@ -184,13 +196,13 @@ TEST(JsonStreamParser_MemoryEfficiency) {
             jsonStream << "{\"id\": " << i << ", \"data\": \"item_" << i << "\"}";
         }
         jsonStream << "]}";
-        
+
         documents.push_back(JsonValue::parse(jsonStream.str()));
     }
-    
+
     size_t memoryAfter = getCurrentMemoryUsage();
     size_t memoryUsed = memoryAfter - memoryBefore;
-    
+
     // 验证所有文档都正确解析
     ASSERT_EQ(documents.size(), 100);
     for (const auto& doc : documents) {
@@ -198,7 +210,7 @@ TEST(JsonStreamParser_MemoryEfficiency) {
         ASSERT_TRUE(doc["items"].isArray());
         ASSERT_EQ(doc["items"].toArray()->get().size(), 100);
     }
-    
+
     // 内存使用应该在合理范围内（这个测试可能需要根据实际情况调整）
     std::cout << "Memory used for 100 documents: " << memoryUsed << " bytes" << std::endl;
 }
@@ -216,22 +228,22 @@ TEST(JsonStreamParser_ConcurrentParsing) {
         ss << "]}";
         jsonStrings.push_back(ss.str());
     }
-    
+
     std::vector<JsonValue> results(10);
     std::vector<std::thread> threads;
-    
+
     // 启动并发解析
     for (int i = 0; i < 10; ++i) {
         threads.emplace_back([&results, &jsonStrings, i]() {
             results[i] = JsonValue::parse(jsonStrings[i]);
-        });
+            });
     }
-    
+
     // 等待所有线程完成
     for (auto& thread : threads) {
         thread.join();
     }
-    
+
     // 验证所有结果
     for (int i = 0; i < 10; ++i) {
         ASSERT_TRUE(results[i].isObject());
@@ -246,21 +258,22 @@ TEST(JsonStreamParser_ProgressiveReading) {
     std::string partialJson1 = R"({"start": true, "data": [)";
     std::string partialJson2 = R"(1, 2, 3, 4, 5)";
     std::string partialJson3 = R"(], "end": true})";
-    
+
     std::string completeJson = partialJson1 + partialJson2 + partialJson3;
-    
+
     // 测试完整解析
     JsonValue complete = JsonValue::parse(completeJson);
     ASSERT_TRUE(complete.isObject());
     ASSERT_TRUE(complete["start"].toBool());
     ASSERT_TRUE(complete["end"].toBool());
     ASSERT_EQ(complete["data"].toArray()->get().size(), 5);
-    
+
     // 测试部分JSON会失败
     bool exceptionCaught = false;
     try {
         JsonValue::parse(partialJson1);
-    } catch (const std::exception&) {
+    }
+    catch (const std::exception&) {
         exceptionCaught = true;
     }
     ASSERT_TRUE(exceptionCaught);

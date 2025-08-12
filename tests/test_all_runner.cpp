@@ -31,58 +31,58 @@ private:
 public:
     TestRunner() {
         testExecutables = {
-            "rfc7396_test.exe",
-            "test_complex_nested_containers.exe",
-            "test_complex_structures.exe",
-            "test_core_functionality.exe",
-            "test_custom_types.exe",
-            "test_error_codes.exe",
-            "test_error_handling.exe",
-            "test_error_recovery.exe",
-            "test_extreme_exception_scenarios.exe",
-            "test_jsonpath_comprehensive.exe",
-            "test_json_auto.exe",
-            "test_json_parsing.exe",
-            "test_json_path_mutable.exe",
-            "test_json_pipeline.exe",
-            "test_json_pointer.exe",
-            "test_json_pointer_basic.exe",
-            "test_json_query_generator.exe",
-            "test_large_deep_nested_objects.exe",
-            "test_lazy_performance_comprehensive.exe",
-            "test_lazy_query_comprehensive.exe",
-            "test_lazy_suite_runner.exe",
-            // "test_multithreaded_concurrency.exe",
-            // "test_performance_limits.exe",
-            "test_performance_struct.exe",
-            "test_serialization_basic.exe",
-            "test_serialization_options.exe",
-            "test_spaced_properties.exe",
-            "test_special_numbers.exe",
-            "test_type_conversion_boundary.exe"
+            "rfc7396_test",
+            "test_complex_nested_containers",
+            "test_complex_structures",
+            "test_core_functionality",
+            "test_custom_types",
+            "test_error_codes",
+            "test_error_handling",
+            "test_error_recovery",
+            "test_extreme_exception_scenarios",
+            "test_jsonpath_comprehensive",
+            "test_json_auto",
+            "test_json_parsing",
+            "test_json_path_mutable",
+            "test_json_pipeline",
+            "test_json_pointer",
+            "test_json_pointer_basic",
+            "test_json_query_generator",
+            "test_large_deep_nested_objects",
+            "test_lazy_performance_comprehensive",
+            "test_lazy_query_comprehensive",
+            "test_lazy_suite_runner",
+            // "test_multithreaded_concurrency",
+            // "test_performance_limits",
+            "test_performance_struct",
+            "test_serialization_basic",
+            "test_serialization_options",
+            "test_spaced_properties",
+            "test_special_numbers",
+            "test_type_conversion_boundary"
         };
     }
 
     std::string runCommand(const std::string& command) {
         std::string result;
-        
+
 #ifdef _WIN32
         HANDLE hPipeRead, hPipeWrite;
-        SECURITY_ATTRIBUTES saAttr = {sizeof(SECURITY_ATTRIBUTES)};
+        SECURITY_ATTRIBUTES saAttr = { sizeof(SECURITY_ATTRIBUTES) };
         saAttr.bInheritHandle = TRUE;
         saAttr.lpSecurityDescriptor = NULL;
 
         if (CreatePipe(&hPipeRead, &hPipeWrite, &saAttr, 0)) {
-            STARTUPINFOA si = {sizeof(STARTUPINFOA)};
+            STARTUPINFOA si = { sizeof(STARTUPINFOA) };
             si.dwFlags = STARTF_USESTDHANDLES;
             si.hStdOutput = hPipeWrite;
             si.hStdError = hPipeWrite;
 
-            PROCESS_INFORMATION pi = {0};
-            
+            PROCESS_INFORMATION pi = { 0 };
+
             if (CreateProcessA(NULL, const_cast<char*>(command.c_str()), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
                 CloseHandle(hPipeWrite);
-                
+
                 char buffer[4096];
                 DWORD bytesRead;
                 while (ReadFile(hPipeRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0) {
@@ -97,7 +97,14 @@ public:
             CloseHandle(hPipeRead);
         }
 #else
-        FILE* pipe = popen(command.c_str(), "r");
+        /// 获取当前程序的路径(linux下)
+        char exePath[1024];
+        readlink("/proc/self/exe", exePath, sizeof(exePath));
+        std::string exeDir = exePath;
+        exeDir = exeDir.substr(0, exeDir.find_last_of("\\/"));
+        auto cmdPath = exeDir + "/" + command;
+
+        FILE* pipe = popen(cmdPath.c_str(), "r");
         if (pipe) {
             char buffer[4096];
             while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
@@ -120,16 +127,16 @@ public:
 
         std::istringstream iss(output);
         std::string line;
-        
+
         while (std::getline(iss, line)) {
             //Search "Total: X, Passed: Y, Failed: Z"
-            if (line.find("Total:") != std::string::npos && 
+            if (line.find("Total:") != std::string::npos &&
                 line.find("Passed:") != std::string::npos) {
-                
+
                 size_t totalPos = line.find("Total:");
                 size_t passedPos = line.find("Passed:");
                 size_t failedPos = line.find("Failed:");
-                
+
                 if (totalPos != std::string::npos && passedPos != std::string::npos) {
                     try {
                         std::string totalStr = line.substr(totalPos + 6);
@@ -141,7 +148,7 @@ public:
                         totalStr.erase(0, totalStr.find_first_not_of(" \t"));
                         totalStr.erase(totalStr.find_last_not_of(" \t") + 1);
                         result.totalTests = std::stoi(totalStr);
-                        
+
                         std::string passedStr = line.substr(passedPos + 7);
                         commaPos = passedStr.find(',');
                         if (commaPos != std::string::npos) {
@@ -150,7 +157,7 @@ public:
                         passedStr.erase(0, passedStr.find_first_not_of(" \t"));
                         passedStr.erase(passedStr.find_last_not_of(" \t") + 1);
                         result.passedTests = std::stoi(passedStr);
-                        
+
                         if (failedPos != std::string::npos) {
                             std::string failedStr = line.substr(failedPos + 7);
                             commaPos = failedStr.find(',');
@@ -161,15 +168,17 @@ public:
                             failedStr.erase(failedStr.find_last_not_of(" \t") + 1);
                             result.failedTests = std::stoi(failedStr);
                         }
-                    } catch (const std::exception& e) {
+                    }
+                    catch (const std::exception& e) {
                         std::cerr << "Failed to parse test counts for " << testName << ": " << e.what() << std::endl;
                     }
                 }
             }
-            
+
             if (line.find("ALL TESTS PASSED!") != std::string::npos) {
                 result.passed = true;
-            } else if (line.find("SOME TESTS FAILED!") != std::string::npos) {
+            }
+            else if (line.find("SOME TESTS FAILED!") != std::string::npos) {
                 result.passed = false;
             }
         }
@@ -189,18 +198,23 @@ public:
             std::cout.flush();
 
             auto testStart = std::chrono::high_resolution_clock::now();
-            std::string output = runCommand(testExe);
+            auto exefile = testExe;
+#ifdef WIN32
+            exefile += ".exe";
+#endif
+            std::string output = runCommand(exefile);
             auto testEnd = std::chrono::high_resolution_clock::now();
-            
+
             auto duration = std::chrono::duration<double>(testEnd - testStart).count();
-            
-            TestResult result = parseTestOutput(testExe, output);
+
+            TestResult result = parseTestOutput(exefile, output);
             result.duration = duration;
             results.push_back(result);
 
             if (result.passed) {
                 std::cout << "PASSED";
-            } else {
+            }
+            else {
                 std::cout << "FAILED";
             }
             std::cout << " (" << std::fixed << std::setprecision(2) << duration << "s)" << std::endl;
@@ -216,7 +230,7 @@ public:
         std::cout << std::endl;
         std::cout << "=== Test Summary ===" << std::endl;
         std::cout << std::string(80, '=') << std::endl;
-        
+
         int totalTestsPassed = 0;
         int totalTestsFailed = 0;
         int totalTestCount = 0;
@@ -227,18 +241,19 @@ public:
             totalTestsPassed += result.passedTests;
             totalTestsFailed += result.failedTests;
             totalTestCount += result.totalTests;
-            
+
             if (result.passed) {
                 suitesPasssed++;
-            } else {
+            }
+            else {
                 suitesFailed++;
             }
 
-            std::cout << std::left << std::setw(30) << result.testName 
-                      << " | " << std::setw(6) << (result.passed ? "PASS" : "FAIL")
-                      << " | " << std::setw(3) << result.totalTests << " tests"
-                      << " | " << std::fixed << std::setprecision(2) << std::setw(6) << result.duration << "s"
-                      << std::endl;
+            std::cout << std::left << std::setw(30) << result.testName
+                << " | " << std::setw(6) << (result.passed ? "PASS" : "FAIL")
+                << " | " << std::setw(3) << result.totalTests << " tests"
+                << " | " << std::fixed << std::setprecision(2) << std::setw(6) << result.duration << "s"
+                << std::endl;
         }
 
         std::cout << std::string(80, '=') << std::endl;
@@ -255,10 +270,11 @@ public:
         if (suitesFailed == 0) {
             std::cout << std::endl;
             std::cout << "ALL TEST SUITES PASSED!" << std::endl;
-        } else {
+        }
+        else {
             std::cout << std::endl;
             std::cout << " " << suitesFailed << " TEST SUITE(S) FAILED!" << std::endl;
-            
+
             std::cout << std::endl;
             std::cout << "=== Failed Test Details ===" << std::endl;
             for (const auto& result : results) {

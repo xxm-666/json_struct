@@ -87,7 +87,7 @@ public:
 
         /// add constructor for JsonValue
         SerializeOptions(int indent = -1, 
-                         bool sortKeys = false,
+                         bool sortKeys = true,
                          bool escapeUnicode = false,
                          bool compactArrays = false,
                          size_t maxPrecision = 15,

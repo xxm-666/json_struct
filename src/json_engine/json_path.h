@@ -5,6 +5,7 @@
 #include <optional>
 #include <functional>
 #include <stdexcept>
+#include <climits>
 
 // Forward declaration
 namespace JsonStruct {
