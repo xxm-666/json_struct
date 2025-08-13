@@ -1,6 +1,6 @@
 ﻿// 迁移的JSON解析测试 - JSON Parsing Precision Tests
 #include "../src/jsonstruct.h"
-#include "test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 #include <cmath>
 

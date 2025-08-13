@@ -1,6 +1,6 @@
 // 迁移的错误恢复测试 - Error Recovery Tests
 #include "../src/jsonstruct.h"
-#include "test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 
 using namespace JsonStruct;

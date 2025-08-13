@@ -1,6 +1,6 @@
 // 迁移的JSON指针测试 - JSON Pointer Tests
 #include "../src/jsonstruct.h"
-#include "test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 
 using namespace JsonStruct;

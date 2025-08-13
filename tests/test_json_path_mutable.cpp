@@ -3,7 +3,7 @@
 #include <string>
 #include "../src/json_engine/json_path.h"
 #include "../src/json_engine/json_value.h"
-#include "test_framework.h"
+#include <test_framework/test_framework.h>
 
 using namespace JsonStruct;
 using namespace jsonvalue_jsonpath;

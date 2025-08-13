@@ -1,22 +1,41 @@
+# =============================================================================
+#
+#                           JsonStruct Project
+#
+# =============================================================================
+#
+# -----------------------------------------------------------------------------
+# I. Project Definition & Version
+# -----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.16)
-project(json_struct LANGUAGES CXX)
 
+# 使用 project 命令直接设置版本，CMake会自动设置 PROJECT_VERSION 等变量
+project(json_struct
+    VERSION "1.2.0"
+    DESCRIPTION "A powerful C++ library for JSON serialization and deserialization"
+    LANGUAGES CXX
+)
+
+# -----------------------------------------------------------------------------
+# II. Global Configuration & Options
+# -----------------------------------------------------------------------------
+
+# 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF) # 推荐关闭，使用标准C++
 
-# ===== 版本管理 =====
-# 定义项目版本号 (语义化版本控制: MAJOR.MINOR.PATCH)
-set(JSON_STRUCT_VERSION_MAJOR 1)
-set(JSON_STRUCT_VERSION_MINOR 2)
-set(JSON_STRUCT_VERSION_PATCH 0)
-set(JSON_STRUCT_VERSION_SUFFIX "dev")  # 空字符串表示正式版本
-
-# 计算完整版本号 
-if(JSON_STRUCT_VERSION_SUFFIX STREQUAL "")
-    set(PROJECT_VERSION "${JSON_STRUCT_VERSION_MAJOR}.${JSON_STRUCT_VERSION_MINOR}.${JSON_STRUCT_VERSION_PATCH}")
-else()
-    set(PROJECT_VERSION "${JSON_STRUCT_VERSION_MAJOR}.${JSON_STRUCT_VERSION_MINOR}.${JSON_STRUCT_VERSION_PATCH}-${JSON_STRUCT_VERSION_SUFFIX}")
+# 定义构建选项
+if (NOT DEFINED ENABLE_QT_SUPPORT)
+    option(ENABLE_QT_SUPPORT "Enable support for Qt types" OFF)
 endif()
+if (NOT DEFINED BUILD_TESTS)
+    option(BUILD_TESTS "Build the project's test suite" OFF)
+endif()
+
+# -----------------------------------------------------------------------------
+# III. Build Information (Git & Timestamp)
+# -----------------------------------------------------------------------------
 
 # 获取构建时间
 string(TIMESTAMP JSON_STRUCT_BUILD_DATE "%Y-%m-%d %H:%M:%S UTC" UTC)
@@ -24,7 +43,6 @@ string(TIMESTAMP JSON_STRUCT_BUILD_DATE "%Y-%m-%d %H:%M:%S UTC" UTC)
 # 获取Git信息（如果可用）
 find_package(Git QUIET)
 if(GIT_FOUND)
-    # 获取当前提交哈希
     execute_process(
         COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -32,8 +50,6 @@ if(GIT_FOUND)
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET
     )
-    
-    # 获取当前分支
     execute_process(
         COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -42,210 +58,159 @@ if(GIT_FOUND)
         ERROR_QUIET
     )
 else()
-    set(JSON_STRUCT_GIT_COMMIT "unknown")
-    set(JSON_STRUCT_GIT_BRANCH "unknown")
+    set(JSON_STRUCT_GIT_COMMIT "N/A")
+    set(JSON_STRUCT_GIT_BRANCH "N/A")
 endif()
 
+# -----------------------------------------------------------------------------
+# IV. Library Target Definition (json_struct)
+# -----------------------------------------------------------------------------
 
-# 生成版本头文件到构建目录，避免只读源目录问题
-set(GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated")
-file(MAKE_DIRECTORY "${GENERATED_INCLUDE_DIR}")
+# 将生成的头文件（如version.h）放到一个独立的目录
+set(GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated/include")
+
+# -- 配置版本头文件 --
+# 1. 为 version.h.in 模板设置它所期望的变量
+set(JSON_STRUCT_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(JSON_STRUCT_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(JSON_STRUCT_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(JSON_STRUCT_VERSION_SUFFIX "") # dev, rc1, etc.
+
+# 2. 执行配置
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in"
+    "src/version.h.in"
     "${GENERATED_INCLUDE_DIR}/version.h"
     @ONLY
 )
 
-# 添加生成目录到头文件搜索路径
-include_directories(BEFORE "${GENERATED_INCLUDE_DIR}")
-
-# 显示版本信息
-message(STATUS "JsonStruct Version: ${PROJECT_VERSION}")
-message(STATUS "Build Date: ${JSON_STRUCT_BUILD_DATE}")
-message(STATUS "Git Commit: ${JSON_STRUCT_GIT_COMMIT}")
-message(STATUS "Git Branch: ${JSON_STRUCT_GIT_BRANCH}")
-
-# Include directories
-include_directories(src)
-include_directories(src/type_registry)
-include_directories(src/std_types)
-include_directories(src/json_engine)
-
-# Core library sources
-set(CORE_SOURCES
-    src/json_engine/json_value.cpp
-    src/json_engine/json_query_generator.cpp
-    src/json_engine/json_path.cpp
-    src/json_engine/internal/json_path_tokenizer.cpp
-    src/json_engine/internal/json_path_parser.cpp
-    src/json_engine/internal/json_path_simple_evaluator.cpp
-    src/json_engine/internal/json_path_filter_evaluator.cpp
-    src/json_engine/internal/json_path_advanced_evaluator.cpp
-    src/json_engine/json_filter.cpp
-    src/json_engine/json_patch.cpp
-    src/json_engine/lazy_query_generator.cpp
-    src/json_engine/lazy_query_generator.cpp
-    src/json_engine/query_factory.cpp
-    src/version.cpp
-    src/json_engine/json_pipeline.cpp
-)
-set(CORE_HEADERS
-    src/jsonstruct.h
-    src/type_registry/registry_core.h
-    src/type_registry/auto_serializer.h
-    src/type_registry/field_macros.h
-    src/std_types/std_registry.h
-    src/json_engine/json_value.h
-    src/json_engine/json_number.h
-    src/json_engine/json_stream_parser.h
-    src/json_engine/json_path.h
-    src/json_engine/internal/json_path_tokenizer.h
-    src/json_engine/internal/json_path_parser.h
-    src/json_engine/internal/json_path_simple_evaluator.h
-    src/json_engine/internal/json_path_filter_evaluator.h
-    src/json_engine/internal/json_path_advanced_evaluator.h
-    src/json_engine/json_filter.h
-    src/json_engine/json_pipeline.h
-    src/json_engine/lazy_query_generator.h
-    src/json_engine/lazy_query_generator.h
-    src/json_engine/query_factory.h
+# 收集核心源文件
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
+    "src/json_engine/*.cpp"
+    "src/json_engine/internal/*.cpp"
+    "src/std_types/*.cpp"
+    "src/type_registry/*.cpp"
+    "src/version.cpp"
 )
 
-# 可选的Qt支持
-if(NOT DEFINED ENABLE_QT_SUPPORT)
-    set(ENABLE_QT_SUPPORT OFF CACHE BOOL "Enable Qt support")
+# 如果启用 Qt 支持，则添加 Qt 相关源文件
+if(ENABLE_QT_SUPPORT)
+    file(GLOB_RECURSE QT_SOURCES CONFIGURE_DEPENDS
+        "src/qt_types/*.cpp"
+    )
+    list(APPEND CORE_SOURCES ${QT_SOURCES})
 endif()
 
+# 创建库
+add_library(json_struct STATIC ${CORE_SOURCES})
+add_library(json_struct::json_struct ALIAS json_struct) # 添加别名
+
+# 为库目标设置属性
+target_compile_features(json_struct PRIVATE cxx_std_17)
+
+# 为 json_struct 添加头文件搜索路径
+target_include_directories(json_struct
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        ${GENERATED_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/json_engine
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/json_engine/internal
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/std_types
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/type_registry
+)
+
+# 处理可选的 Qt 支持
 if(ENABLE_QT_SUPPORT)
     find_package(Qt6 COMPONENTS Core Widgets)
     if(Qt6_FOUND)
-        add_definitions(-DQT_CORE_LIB)
-        # 添加Qt相关的源文件
-        list(APPEND CORE_SOURCES
+        # --- 诊断信息 ---
+        message(STATUS "--- Qt Diagnostics ---")
+        message(STATUS "Qt6_FOUND: ${Qt6_FOUND}")
+        message(STATUS "Qt6_INCLUDE_DIRS: ${Qt6_INCLUDE_DIRS}")
+        get_target_property(QT6_CORE_INCLUDE_DIRS Qt6::Core INTERFACE_INCLUDE_DIRECTORIES)
+        message(STATUS "Qt6::Core INTERFACE_INCLUDE_DIRECTORIES: ${QT6_CORE_INCLUDE_DIRS}")
+        message(STATUS "--- End Qt Diagnostics ---")
+        # --- 结束诊断 ---
+
+        message(STATUS "Qt6 found - Enabling Qt support")
+        target_sources(json_struct PRIVATE
             src/qt_types/qt_ultimate_registry.cpp
             src/qt_types/qt_common.cpp
         )
-        list(APPEND CORE_HEADERS
-            src/qt_types/qt_registry.h
-            src/qt_types/qt_ultimate_registry.h
-            src/qt_types/qt_common.h
+        # 显式添加 Qt 的包含目录，以增强兼容性
+        target_include_directories(json_struct PRIVATE
+             ${CMAKE_CURRENT_SOURCE_DIR}/src/qt_types
+             ${Qt6_INCLUDE_DIRS}
         )
-        # 添加Qt包含目录
-        include_directories(src/qt_types)
-        message(STATUS "Qt6 found - Qt support enabled")
+        target_link_libraries(json_struct PUBLIC Qt6::Core Qt6::Widgets)
     else()
-        message(WARNING "Qt6 not found - Qt support disabled")
+        message(WARNING "Qt support was enabled, but Qt6 was not found.")
     endif()
 endif()
 
-# 添加INTERFACE头文件路径
-add_library(json_struct STATIC ${CORE_SOURCES} ${CORE_HEADERS})
-target_include_directories(json_struct INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-    $<INSTALL_INTERFACE:include/jsonstruct>
-)
-
-if(ENABLE_QT_SUPPORT AND Qt6_FOUND)
-    target_link_libraries(json_struct PUBLIC Qt6::Core Qt6::Widgets)
-    target_include_directories(json_struct PUBLIC ${Qt6Core_INCLUDE_DIRS})
-endif()
-
-target_compile_features(json_struct PRIVATE cxx_std_17)
-
-# 选项控制是否编译测试和示例
-if(NOT DEFINED BUILD_TESTS)
-    set(BUILD_TESTS ON CACHE BOOL "Build test targets")
-endif()
-if(NOT DEFINED BUILD_EXAMPLES)
-    set(BUILD_EXAMPLES OFF CACHE BOOL "Build example targets")
-endif()
+# -----------------------------------------------------------------------------
+# V. Subdirectories (Tests & Examples)
+# -----------------------------------------------------------------------------
 
 if(BUILD_TESTS)
-    include(tests/CMakeLists.txt)
+    enable_testing() # 启用 CTest
+    add_subdirectory(test_framework_lib)
+    add_subdirectory(tests)
 endif()
-
-if(BUILD_EXAMPLES)
-    include(examples/CMakeLists.txt)
-endif()
-
-# 安装部分保持原样
-install(TARGETS json_struct
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-)
-
-install(FILES src/jsonstruct.h
-        "${GENERATED_INCLUDE_DIR}/version.h"
-    DESTINATION include/jsonstruct
-)
-
-install(FILES src/type_registry/registry_core.h
-             src/type_registry/auto_serializer.h
-             src/type_registry/field_macros.h
-    DESTINATION include/jsonstruct/type_registry
-)
-
-install(FILES src/std_types/std_registry.h
-    DESTINATION include/jsonstruct/std_types
-)
-
-# Qt类型支持头文件
-if(ENABLE_QT_SUPPORT)
-    find_package(Qt6 COMPONENTS Core Widgets QUIET)
-    if(Qt6_FOUND)
-        install(FILES src/qt_types/qt_registry.h
-                     src/qt_types/qt_common.h
-                     src/qt_types/qt_ultimate_registry.h
-            DESTINATION include/jsonstruct/qt_types
-        )
-    endif()
-endif()
-
-install(FILES src/json_engine/json_value.h
-             src/json_engine/json_number.h
-             src/json_engine/json_stream_parser.h
-             src/json_engine/json_path.h
-             src/json_engine/json_error.h
-             src/json_engine/json_filter.h
-             src/json_engine/json_pipeline.h
-             src/json_engine/lazy_query_generator.h
-             src/json_engine/lazy_query_generator.h
-             src/json_engine/json_patch.h
-             src/json_engine/query_factory.h
-    DESTINATION include/jsonstruct/json_engine
-)
-
-# 修复导出集名称问题
-install(TARGETS json_struct
-        EXPORT json_structTargets
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin)
-
-export(EXPORT json_structTargets
-       FILE json_structTargets.cmake
-       NAMESPACE json_struct::)
-
-# 生成配置文件
+# -----------------------------------------------------------------------------
+# VI. Installation Rules
+# -----------------------------------------------------------------------------
+include(GNUInstallDirs) # 引入标准安装路径变量 (CMAKE_INSTALL_LIBDIR, etc.)
 include(CMakePackageConfigHelpers)
+
+# 1. 安装目标及其 "Targets" 导出文件
+install(TARGETS json_struct
+    EXPORT json_structTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# 2. 安装公共头文件
+install(DIRECTORY src/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/json_struct
+    FILES_MATCHING
+    PATTERN "*.h"
+    PATTERN "*/internal" EXCLUDE
+)
+#    单独安装生成的版本头文件
+install(FILES ${GENERATED_INCLUDE_DIR}/version.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/json_struct
+)
+
+# 3. 生成并安装版本文件 (ConfigVersion.cmake)
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/json_structConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY AnyNewerVersion
 )
 
-configure_file(json_structConfig.cmake.in
-               "${CMAKE_CURRENT_BINARY_DIR}/json_structConfig.cmake"
-               @ONLY)
+# 4. 生成并安装配置文件 (Config.cmake)
+configure_file("json_structConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/json_structConfig.cmake"
+    @ONLY
+)
 
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/json_structConfig.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/json_structConfigVersion.cmake"
-    DESTINATION lib/cmake/json_struct
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json_struct
 )
 
-# 安装导出文件
+# 5. 安装导出的 Targets 文件
 install(EXPORT json_structTargets
-        FILE json_structTargets.cmake
-        NAMESPACE json_struct::
-        DESTINATION lib/cmake/json_struct)
+    FILE json_structTargets.cmake
+    NAMESPACE json_struct::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json_struct
+)
+
+# =============================================================================
+#                         End of JsonStruct Project
+# =============================================================================

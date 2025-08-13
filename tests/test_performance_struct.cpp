@@ -1,6 +1,6 @@
 // 迁移的性能结构体测试 - Performance Struct Tests
 #include "../src/jsonstruct.h"
-#include "test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 #include <string>
 #include <vector>

@@ -1,6 +1,6 @@
 // 迁移的自定义类型测试 - Custom Types Tests
 #include "../src/jsonstruct.h"
-#include "test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 #include <cmath>
 

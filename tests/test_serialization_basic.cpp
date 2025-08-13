@@ -1,6 +1,6 @@
 // 序列化选项基础测试
 #include "../src/jsonstruct.h"
-#include "../test_framework/test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 #include <algorithm>
 #include <chrono>

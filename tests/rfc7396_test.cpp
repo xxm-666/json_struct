@@ -1,5 +1,5 @@
 #include "json_engine/json_patch.h"
-#include "../test_framework/test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 
 using namespace JsonStruct::literals;

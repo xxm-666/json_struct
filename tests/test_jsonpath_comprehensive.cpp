@@ -1,7 +1,7 @@
 #include "json_engine/json_path.h"
 #include "json_engine/json_value.h"
 #include "json_engine/internal/json_path_filter_evaluator.h"
-#include "../test_framework/test_framework.h"
+#include <test_framework/test_framework.h>
 #include <vector>
 #include <string>
 #include <iostream>

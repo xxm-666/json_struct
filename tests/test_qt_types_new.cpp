@@ -1,4 +1,4 @@
-#include "../test_framework/test_framework.h"
+#include <test_framework/test_framework.h>
 #include "../src/type_registry/registry_core.h"
 #include "../src/type_registry/auto_serializer.h"
 

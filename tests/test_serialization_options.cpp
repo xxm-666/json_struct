@@ -1,6 +1,6 @@
 // 序列化选项全面测试
 #include "../src/jsonstruct.h"
-#include "../test_framework/test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 #include <regex>
 #include <chrono>

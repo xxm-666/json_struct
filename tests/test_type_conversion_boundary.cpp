@@ -1,6 +1,6 @@
 // 类型转换和边界条件测试
 #include "../src/jsonstruct.h"
-#include "../test_framework/test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 #include <limits>
 #include <cmath>

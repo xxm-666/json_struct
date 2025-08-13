@@ -1,6 +1,6 @@
 // 迁移的特殊数字测试 - Special Numbers Tests
 #include "../src/jsonstruct.h"
-#include "test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 #include <cmath>
 

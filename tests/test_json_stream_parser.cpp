@@ -1,6 +1,6 @@
 // JsonValue 流式解析器测试
 #include "../src/jsonstruct.h"
-#include "../test_framework/test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 #include <sstream>
 #include <chrono>

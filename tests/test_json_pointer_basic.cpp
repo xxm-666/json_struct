@@ -1,6 +1,6 @@
 // JSONPath 基础功能测试
 #include "../src/jsonstruct.h"
-#include "../test_framework/test_framework.h"
+#include <test_framework/test_framework.h>
 #include <iostream>
 
 using namespace JsonStruct;

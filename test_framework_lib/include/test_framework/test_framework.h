@@ -375,7 +375,7 @@ public:
             if (supportsColor()) {
                 for (const auto& failure : totalResult.getFailures()) {
                     std::cout << "\033[31m- " << failure << "\033[0m" << std::endl;  // Red for failures
-                }
+                } 
             } else {
                 for (const auto& failure : totalResult.getFailures()) {
                     std::cout << "- " << failure << std::endl;
