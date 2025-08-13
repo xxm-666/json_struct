@@ -230,7 +230,7 @@ public:
             return intValue_;
         } else if (type_ == Double) {
             // For floating point numbers, perform truncation conversion (to maintain backward compatibility)
-            if (doubleValue_ >= LLONG_MIN && doubleValue_ <= LLONG_MAX) {
+            if (doubleValue_ >= static_cast<double>(LLONG_MIN) && doubleValue_ <= static_cast<double>(LLONG_MAX)) {
                 return static_cast<int64_t>(doubleValue_);
             }
         }
