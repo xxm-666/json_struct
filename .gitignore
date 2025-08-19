@@ -1,0 +1,13 @@
+﻿# Build outputs & editor data
+/build/
+/build-release/
+/out/
+/.vs/
+/.vscode/
+*.exe
+*.pdb
+*.lib
+*.ilk
+*.obj
+*.tlog
+*.ninja
