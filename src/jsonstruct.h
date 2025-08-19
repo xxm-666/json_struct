@@ -76,7 +76,7 @@ public:
  *     std::vector<int> scores;
  *     std::map<std::string, double> settings;
  *     
- *     JSON_FIELDS(name, scores, settings)
+ *     JSON_AUTO(UserData, name, scores, settings)
  * };
  * 
  * int main() {

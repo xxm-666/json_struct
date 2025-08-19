@@ -38,7 +38,7 @@ int main() {
 }
 ```
 
-更多用法详见 `test_framework/ENHANCED_FRAMEWORK_DOCUMENTATION.md`。
+更多用法详见 `test_framework/README.md`。
 
 ---
 
@@ -60,7 +60,7 @@ struct UserData {
     std::map<std::string, double> settings;
   
     // 一行宏完成所有类型注册！
-    JSON_AUTO(name, scores, settings)
+    JSON_AUTO(UserData, name, scores, settings)
 };
 
 // 自动序列化/反序列化
@@ -123,9 +123,10 @@ while (gen.hasNext() && results.size() < 100) {
 }
 
 // 查看性能统计
-std::cout << "效率比: " << gen.getEfficiencyRatio() << "%\n";
+std::cout << "性能统计: " << gen.getPerformanceStats() << "\n";
 std::cout << "缓存命中率: " << gen.getCacheHitRatio() << "%\n";
-std::cout << "处理帧数: " << gen.getFramesProcessed() << "\n";
+auto progress = gen.getProgress();
+std::cout << "已生成结果: " << progress.generatedCount << "\n";
 
 // 重置并重用（保留缓存）
 gen.reset();
@@ -147,18 +148,13 @@ struct WindowSettings {
     QRectF geometry = {0, 0, 800, 600};
     QList<QString> recentFiles;
   
-    JSON_AUTO(title, position, geometry, recentFiles)
+    JSON_AUTO(WindowSettings, title, position, geometry, recentFiles)
 };
 ```
 
 ### ⚡ 高性能流式处理
 
-JsonStruct 提供两种查询生成器以满足不同需求：
-
-#### 基础懒查询生成器
-- **轻量级**: 适合简单查询和小型数据集
-- **零依赖**: 无额外内存开销
-- **快速**: 直接查询，无缓存开销
+JsonStruct 提供了增强型懒查询生成器以满足不同需求：
 
 #### 增强型懒查询生成器
 - **功能完整**: 支持所有JSONPath语法（过滤器、切片、递归等）
@@ -167,10 +163,7 @@ JsonStruct 提供两种查询生成器以满足不同需求：
 - **内存高效**: 延迟求值，分帧处理
 
 ```cpp
-// 简单查询推荐使用基础生成器
-auto basicGen = data.createLazyQuery("$.users[*].name");
-
-// 复杂查询推荐使用增强型生成器
+// 复杂查询使用增强型生成器
 JsonFilter filter = JsonFilter::createDefault();
 auto enhancedGen = QueryFactory::createGenerator(filter, data,
     "$.companies[*].departments[?(@.budget > 100000)].employees[?(@.active)]");
@@ -213,12 +206,14 @@ using namespace JsonStruct;
 #include "jsonstruct.h"
 #include <iostream>
 
+using namespace JsonStruct;
+
 struct Person {
     std::string name;
     int age;
     std::vector<std::string> hobbies;
   
-    JSON_AUTO(name, age, hobbies)
+    JSON_AUTO(Person, name, age, hobbies)
 };
 
 int main() {
@@ -247,11 +242,10 @@ JsonStruct/
 │   ├── std_types/                # STL 类型支持
 │   ├── qt_types/                 # Qt 类型支持
 │   └── json_engine/              # JSON 引擎核心
-├── examples/                     # 示例代码
+├── test_framework/               # 测试框架
 ├── tests/                        # 测试套件
 ├── benchmarks/                   # 性能基准测试
-├── docs/                         # 详细文档
-└── webnet/                       # 项目网站
+└── docs/                         # 详细文档
 ```
 
 ## 🧪 构建和测试
@@ -262,8 +256,8 @@ JsonStruct/
 # 创建构建目录
 mkdir build && cd build
 
-# 配置项目
-cmake .. -DCMAKE_BUILD_TYPE=Release
+# 配置项目（启用测试）
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
 
 # 构建
 cmake --build . --config Release
@@ -273,7 +267,7 @@ cmake --build . --config Release
 
 ```bash
 # 构建测试
-cmake --build . --target build_all_tests
+cmake --build . --config Release
 
 # 运行核心测试
 ctest --output-on-failure
@@ -283,19 +277,19 @@ ctest --output-on-failure
 
 ### JSONPath 完整语法支持
 
-| 功能       | 语法示例                        | 基础生成器 | 增强型生成器 |
-| ---------- | ------------------------------- | ---------- | ------------ |
-| 根节点     | `$`                           | ✅ 支持    | ✅ 支持      |
-| 属性访问   | `$.prop`                      | ✅ 支持    | ✅ 支持      |
-| 嵌套属性   | `$.prop.subprop`              | ✅ 支持    | ✅ 支持      |
-| 数组索引   | `$.arr[0]`                    | ✅ 支持    | ✅ 支持      |
-| 数组切片   | `$.arr[1:3]`, `$.arr[::2]`    | ❌ 不支持  | ✅ 完全支持  |
-| 通配符     | `$.*`, `$.arr[*]`           | ✅ 支持    | ✅ 支持      |
-| 递归下降   | `$..prop`                     | ✅ 支持    | ✅ 支持      |
-| 带空格属性 | `$['prop name']`              | ✅ 支持    | ✅ 支持      |
-| 过滤器     | `$.arr[?(@.prop == 'value')]` | ❌ 不支持  | ✅ 完全支持  |
-| Union操作  | `$.path1,$.path2`             | ❌ 不支持  | ✅ 完全支持  |
-| 负索引     | `$.arr[-1]`                   | ❌ 不支持  | ✅ 支持      |
+| 功能       | 语法示例                        | LazyQueryGenerator | selectFirst/selectAll |
+| ---------- | ------------------------------- | ------------------ | --------------------- |
+| 根节点     | `$`                           | ✅ 支持            | ✅ 支持               |
+| 属性访问   | `$.prop`                      | ✅ 支持            | ✅ 支持               |
+| 嵌套属性   | `$.prop.subprop`              | ✅ 支持            | ✅ 支持               |
+| 数组索引   | `$.arr[0]`                    | ✅ 支持            | ✅ 支持               |
+| 数组切片   | `$.arr[1:3]`, `$.arr[::2]`    | ✅ 完全支持        | ✅ 支持               |
+| 通配符     | `$.*`, `$.arr[*]`           | ✅ 支持            | ✅ 支持               |
+| 递归下降   | `$..prop`                     | ✅ 支持            | ✅ 支持               |
+| 带空格属性 | `$['prop name']`              | ✅ 支持            | ✅ 支持               |
+| 过滤器     | `$.arr[?(@.prop == 'value')]` | ✅ 完全支持        | ✅ 支持               |
+| Union操作  | `$.path1,$.path2`             | ✅ 完全支持        | ✅ 支持               |
+| 负索引     | `$.arr[-1]`                   | ✅ 支持            | ✅ 支持               |
 
 ### 增强型查询生成器特性
 
@@ -318,9 +312,9 @@ std::cout << "命中率: " << gen.getCacheHitRatio() << "%\n";
 #### 性能监控和统计
 ```cpp
 // 查询执行统计
-std::cout << "处理帧数: " << gen.getFramesProcessed() << "\n";
-std::cout << "生成结果: " << gen.getResultsGenerated() << "\n";
-std::cout << "效率比: " << gen.getEfficiencyRatio() << "%\n";
+auto progress = gen.getProgress();
+std::cout << "已生成结果: " << progress.generatedCount << "\n";
+std::cout << "性能统计: " << gen.getPerformanceStats() << "\n";
 
 // 检查生成器状态
 if (gen.hasNext()) {
@@ -365,17 +359,13 @@ std::cout << "Git 提交: " << Version::getGitCommit() << std::endl;
 ### 流式查询和延迟求值
 
 ```cpp
-// 处理大型 JSON 数据
-auto generator = data.streamQuery("$.events[*]");
-
-// 配置选项
-QueryGenerator::GeneratorOptions options;
-options.maxResults = 1000;
-options.batchSize = 100;
+// 处理大型 JSON 数据 - 使用懒查询生成器
+JsonFilter filter = JsonFilter::createDefault();
+auto generator = QueryFactory::createGenerator(filter, data, "$.events[*]", 1000);
 
 // 分批处理
-while (generator.hasMore()) {
-    auto batch = generator.takeBatch(50);
+while (generator.hasNext()) {
+    auto batch = generator.nextBatch(50);
     processBatch(batch);
 }
 ```
@@ -413,18 +403,20 @@ while (generator.hasMore()) {
 
 ### 📈 性能数据
 
+*注意：以下性能数据为示例数据，实际性能可能因硬件配置、数据复杂度等因素而异。具体性能数据请运行 `benchmarks/` 目录下的基准测试获得。*
+
 #### 查询性能对比
 
-| 查询类型 | 基础生成器 | 增强型生成器 | 增强型+缓存 |
-|---------|-----------|-------------|------------|
+| 查询类型 | 直接查询 | LazyQueryGenerator | LazyQueryGenerator+缓存 |
+|---------|---------|-------------------|----------------------|
 | 简单属性访问 | ~65μs | ~89μs | ~45μs (缓存命中) |
 | 数组切片 | ~79μs | ~125μs | ~60μs (缓存命中) |
 | 递归搜索 | ~975μs | ~5067μs | ~2500μs (缓存命中) |
-| 复杂过滤器 | 不支持 | ~2131μs | ~1000μs (缓存命中) |
+| 复杂过滤器 | 支持 | ~2131μs | ~1000μs (缓存命中) |
 
 #### 缓存效果
 
-- **首次查询**: 建立缓存，性能略低于基础版本
+- **首次查询**: 建立缓存，性能与直接查询相当
 - **重复查询**: 缓存命中率 50-70%，性能提升 40-60%
 - **复杂查询**: 缓存效果更明显，性能提升高达 100%
 

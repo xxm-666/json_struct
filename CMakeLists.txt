@@ -155,7 +155,7 @@ endif()
 
 if(BUILD_TESTS)
     enable_testing() # 启用 CTest
-    add_subdirectory(test_framework_lib)
+    add_subdirectory(test_framework)
     add_subdirectory(tests)
 endif()
 # -----------------------------------------------------------------------------
