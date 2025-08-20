@@ -32,6 +32,9 @@ endif()
 if (NOT DEFINED BUILD_TESTS)
     option(BUILD_TESTS "Build the project's test suite" OFF)
 endif()
+if (NOT DEFINED BUILD_FUZZER)
+    option(BUILD_FUZZER "Build fuzzing tests with libFuzzer (requires Clang)" OFF)
+endif()
 
 # -----------------------------------------------------------------------------
 # III. Build Information (Git & Timestamp)
@@ -158,6 +161,20 @@ if(BUILD_TESTS)
     add_subdirectory(test_framework)
     add_subdirectory(tests)
 endif()
+
+# -----------------------------------------------------------------------------
+# VII. Fuzzing Support (Optional)
+# -----------------------------------------------------------------------------
+if(BUILD_FUZZER)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(WARNING "Fuzzing requires Clang compiler. Current compiler: ${CMAKE_CXX_COMPILER_ID}. Disabling BUILD_FUZZER.")
+        set(BUILD_FUZZER OFF CACHE BOOL "Build fuzzing tests with libFuzzer (requires Clang)" FORCE)
+    else()
+        message(STATUS "Fuzzing enabled with Clang compiler.")
+        add_subdirectory(tests/fuzzing)
+    endif()
+endif()
+
 # -----------------------------------------------------------------------------
 # VI. Installation Rules
 # -----------------------------------------------------------------------------
